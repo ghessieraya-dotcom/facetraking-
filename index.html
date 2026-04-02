@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>تتبع الوجه الذكي - MediaPipe</title>
+  <title>مساعد الدراسة الذكي - Aya Ghesseier</title>
   
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
@@ -10,47 +10,50 @@
 
   <style>
     body { 
-      margin: 0; 
-      background: #1e272e; 
-      color: white; 
-      text-align: center; 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-      overflow: hidden;
+      margin: 0; background: #1e272e; color: white; 
+      text-align: center; font-family: 'Segoe UI', sans-serif; overflow: hidden;
     }
     #status { 
-      padding: 20px; 
-      background: #2f3640; 
-      font-size: 1.2rem;
-      border-bottom: 2px solid #00d2d3;
+      padding: 15px; background: #2f3640; font-size: 1.2rem; border-bottom: 3px solid #3498db;
     }
+    .controls { padding: 10px; background: #34495e; }
+    button {
+      padding: 10px 20px; font-size: 1rem; cursor: pointer; background: #2ecc71;
+      border: none; color: white; border-radius: 5px; font-weight: bold;
+    }
+    button:hover { background: #27ae60; }
     .container { 
-      position: relative; 
-      width: 100vw; 
-      height: 80vh; 
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      position: relative; width: 100vw; height: 70vh; 
+      display: flex; justify-content: center; align-items: center;
     }
     #input_video { 
-      position: absolute;
-      width: 90%; 
-      max-width: 640px;
-      border-radius: 15px;
-      transform: scaleX(-1); /* مرآة */
+      position: absolute; width: 90%; max-width: 640px; border-radius: 15px; transform: scaleX(-1);
     }
     #output_canvas { 
-      position: absolute; 
-      width: 90%; 
-      max-width: 640px;
-      transform: scaleX(-1);
-      z-index: 10;
+      position: absolute; width: 90%; max-width: 640px; transform: scaleX(-1); z-index: 10;
     }
+    /* طبقة التنبيه عند النوم */
+    #overlay {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(192, 57, 43, 0.95); z-index: 1000;
+      flex-direction: column; justify-content: center; align-items: center;
+    }
+    #overlay h1 { font-size: 4rem; margin: 0; text-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
   </style>
 </head>
 
 <body>
-  <div id="status">⏳ جاري تحميل محرك الذكاء الاصطناعي...</div>
+  <div id="status">⏳ جاري تحميل الذكاء الاصطناعي...</div>
   
+  <div class="controls">
+    <button onclick="calibrateFace()">🎯 اضغطي هنا لضبط حساسية عينكِ (المعايرة)</button>
+  </div>
+
+  <div id="overlay">
+    <h1>😴 أووو! أنتِ نائمة!</h1>
+    <p style="font-size: 1.5rem;">استيقظي فوراً وتابعي الدراسة! 📖</p>
+  </div>
+
   <div class="container">
     <video id="input_video"></video>
     <canvas id="output_canvas"></canvas>
@@ -61,58 +64,90 @@
     const canvasElement = document.getElementById('output_canvas');
     const canvasCtx = canvasElement.getContext('2d');
     const statusDiv = document.getElementById('status');
+    const overlay = document.getElementById('overlay');
 
-    // إعدادات الحجم للكانفاس
-    canvasElement.width = 640;
-    canvasElement.height = 480;
+    let baseEAR = 0.25; // القيمة الافتراضية للعين
+    let currentEAR = 0;
+    let audioCtx = null;
+
+    // دالة المعايرة لضبط "العيون النائمة" طبيعياً
+    window.calibrateFace = function() {
+      statusDiv.innerText = "⏳ انظري للكاميرا بوضوح لمدة 3 ثوانٍ...";
+      let samples = [];
+      let count = 0;
+      
+      const interval = setInterval(() => {
+        if (currentEAR > 0) {
+          samples.push(currentEAR);
+          count++;
+        }
+        if (count >= 30) {
+          clearInterval(interval);
+          baseEAR = samples.reduce((a, b) => a + b) / samples.length;
+          alert("✅ تم الحفظ! التطبيق الآن يعرف ملامحكِ الطبيعية.");
+          statusDiv.innerText = "📖 وضع الدراسة: مراقبة ذكية مفعلة";
+        }
+      }, 100);
+    };
+
+    // دالة الصوت التنبيهي
+    function playAlertSound() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.3);
+    }
 
     function onResults(results) {
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
       
       if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-        statusDiv.innerText = "✅ تم الاتصال: وجهك تحت المراقبة الآن!";
-        statusDiv.style.color = "#1dd1a1";
+        const landmarks = results.multiFaceLandmarks[0];
 
-        for (const landmarks of results.multiFaceLandmarks) {
-          // رسم الشبكة الرفيعة على الوجه
-          drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION,
-                         {color: '#C0C0C070', lineWidth: 1});
+        // حساب نسبة فتحة العين (EAR)
+        function getEAR(p1, p2, p3, p4, p5, p6) {
+          const v1 = Math.hypot(landmarks[p2].x - landmarks[p6].x, landmarks[p2].y - landmarks[p6].y);
+          const v2 = Math.hypot(landmarks[p3].x - landmarks[p5].x, landmarks[p3].y - landmarks[p5].y);
+          const h = Math.hypot(landmarks[p1].x - landmarks[p4].x, landmarks[p1].y - landmarks[p4].y);
+          return (v1 + v2) / (2.0 * h);
         }
-      } else {
-        statusDiv.innerText = "🔍 ابحث عن وجه... (تأكدي من الإضاءة)";
-        statusDiv.style.color = "#ff6b6b";
+
+        const leftEAR = getEAR(33, 160, 158, 133, 153, 144);
+        const rightEAR = getEAR(362, 385, 387, 263, 373, 380);
+        currentEAR = (leftEAR + rightEAR) / 2;
+
+        // منطق التنبيه (إذا قل عن 70% من الفتحة الطبيعية)
+        if (currentEAR < baseEAR * 0.7) {
+          overlay.style.display = "flex";
+          statusDiv.innerText = "😴 أووو! أنتِ نائمة!";
+          if (Math.random() < 0.1) playAlertSound(); // صوت متقطع
+        } else {
+          overlay.style.display = "none";
+          statusDiv.innerText = "📖 وضع الدراسة: تركيز عالي";
+        }
+
+        // رسم الشبكة
+        drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {color: '#C0C0C050', lineWidth: 1});
       }
       canvasCtx.restore();
     }
 
-    const faceMesh = new FaceMesh({locateFile: (file) => {
-      return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
-    }});
-
-    faceMesh.setOptions({
-      maxNumFaces: 1,
-      refineLandmarks: true, // مهم جداً لتحليل العين والفم لاحقاً
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
-    });
-
+    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+    faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     faceMesh.onResults(onResults);
 
-    // تشغيل الكاميرا مع معالجة الأخطاء
     const camera = new Camera(videoElement, {
-      onFrame: async () => {
-        await faceMesh.send({image: videoElement});
-      },
-      width: 640,
-      height: 480
+      onFrame: async () => { await faceMesh.send({image: videoElement}); },
+      width: 640, height: 480
     });
-
-    camera.start().catch(err => {
-      alert("خطأ في تشغيل الكاميرا: " + err);
-      statusDiv.innerText = "❌ فشل تشغيل الكاميرا";
-    });
+    camera.start();
   </script>
 </body>
 </html>
-
