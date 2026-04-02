@@ -2,67 +2,59 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>مختبر آية الذكي - v15</title>
+  <title>نظام آية Ghesseier v16</title>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
   
   <style>
-    :root { --accent: #6366f1; --bg: #020617; --card: #0f172a; --success: #10b981; --danger: #ef4444; }
+    :root { --accent: #6366f1; --bg: #020617; --card: #0f172a; --success: #10b981; }
+    body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
     
-    /* تقسيم الشاشة: لوحة جانبية ومنطقة عرض */
-    body { margin: 0; background: var(--bg); color: white; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+    /* اللوحة الجانبية محميّة تماماً */
+    #side-panel { width: 300px; background: var(--card); padding: 20px; border-left: 2px solid #1e293b; z-index: 100; display: flex; flex-direction: column; gap: 15px; }
     
-    #side-panel { width: 320px; background: var(--card); padding: 20px; border-left: 2px solid #1e293b; display: flex; flex-direction: column; gap: 15px; z-index: 10; box-shadow: 5px 0 15px rgba(0,0,0,0.5); }
+    /* منطقة العرض */
+    #main-display { flex: 1; position: relative; background: #000; display: flex; justify-content: center; align-items: center; }
     
-    #main-display { flex: 1; position: relative; background: #000; display: flex; justify-content: center; align-items: center; overflow: hidden; }
-    
-    /* منع الفيديو من تغطية الأزرار */
-    video, canvas { position: absolute; max-width: 95%; max-height: 95%; border-radius: 15px; transform: scaleX(-1); object-fit: contain; }
-    
-    .stat-card { background: #1e293b; padding: 12px; border-radius: 10px; border-right: 4px solid var(--accent); transition: 0.3s; }
-    .label { font-size: 0.75rem; color: #94a3b8; margin-bottom: 5px; }
-    .value { font-size: 1.2rem; font-weight: bold; }
-    
-    button { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-    button:hover { opacity: 0.8; transform: translateY(-2px); }
+    /* جعل الكانفاس مرئياً ومطابقاً للفيديو */
+    #output_canvas { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); z-index: 10; }
+    #input_video { position: absolute; width: 1px; height: 1px; opacity: 0; }
 
-    #ai-status { position: absolute; top: 20px; right: 20px; padding: 8px 15px; background: rgba(0,0,0,0.6); border-radius: 20px; font-size: 0.8rem; border: 1px solid var(--success); color: var(--success); z-index: 5; }
+    .stat-card { background: #1e293b; padding: 12px; border-radius: 10px; border-right: 4px solid var(--accent); }
+    .label { font-size: 0.75rem; color: #94a3b8; }
+    .value { font-size: 1.2rem; font-weight: bold; }
+    button { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    #ai-status { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); padding: 5px 15px; border-radius: 20px; z-index: 20; color: var(--success); font-size: 0.8rem; border: 1px solid var(--success); }
   </style>
 </head>
 <body>
 
 <aside id="side-panel">
-  <h2 style="color:var(--accent); text-align:center; margin-top:0;">AYA SYSTEM</h2>
-  
+  <h2 style="color:var(--accent); text-align:center;">AYA SYSTEM</h2>
   <div class="stat-card">
-    <div class="label">عداد الرمش</div>
+    <div class="label">الرمش (Blinks)</div>
     <div id="blink-val" class="value">0</div>
   </div>
-
-  <div class="stat-card">
-    <div class="label">الحالة (تتبع العين)</div>
-    <div id="status-val" class="value">مركّز ✅</div>
-  </div>
-
   <div class="stat-card">
     <div class="label">تعبير الوجه</div>
     <div id="emotion-val" class="value">طبيعي</div>
   </div>
-
+  <div class="stat-card">
+    <div class="label">الحالة</div>
+    <div id="status-val" class="value">مركّز ✅</div>
+  </div>
   <div class="stat-card">
     <div class="label">تحليل اليد</div>
     <div id="hand-val" class="value">بانتظار الرصد</div>
   </div>
-
-  <button onclick="location.reload()">🔄 إعادة مزامنة الكاميرا</button>
-  <p style="font-size:0.7rem; color:#64748b; text-align:center;">نسخة التطوير v15.0 - آية Ghesseier</p>
+  <button onclick="location.reload()">تحديث النظام 🔄</button>
 </aside>
 
 <main id="main-display">
-  <div id="ai-status">المحرك الذكي: جاري التحميل...</div>
-  <video id="input_video" playsinline style="opacity: 0;"></video>
+  <div id="ai-status">المحرك: جاري البدء...</div>
+  <video id="input_video" playsinline></video>
   <canvas id="output_canvas"></canvas>
 </main>
 
@@ -72,59 +64,56 @@
   const ctx = canvas.getContext('2d');
   
   let blinks = 0, isClosed = false;
-
   const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
 
-  // 1. إعداد محرك الوجه
+  // إعداد المحركات
   const faceMesh = new FaceMesh({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
-  faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+  faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6 });
 
-  // 2. إعداد محرك اليد
   const hands = new Hands({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
-  hands.setOptions({ maxNumHands: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+  hands.setOptions({ maxNumHands: 1, minDetectionConfidence: 0.6 });
 
-  let lastHandResults = null;
-  hands.onResults(res => { lastHandResults = res.multiHandLandmarks; });
+  let lastHandRes = null;
+  hands.onResults(res => { lastHandRes = res.multiHandLandmarks; });
 
   faceMesh.onResults(async (res) => {
-    document.getElementById('ai-status').innerText = "المحرك الذكي: متصل ✅";
+    document.getElementById('ai-status').innerText = "المحرك: متصل ✅";
     
-    if (!res.multiFaceLandmarks || res.multiFaceLandmarks.length === 0) return;
-    const lm = res.multiFaceLandmarks[0];
-
-    // إرسال الصورة لمحرك اليد بالتوازي
-    await hands.send({image: res.image});
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(res.image, 0, 0, canvas.width, canvas.height);
-
-    // رسم تتبع الوجه
-    drawConnectors(ctx, lm, FACEMESH_TESSELATION, {color: '#C0C0C040', lineWidth: 1});
-
-    // منطق الرمش (EAR)
-    const ear = (dist(lm[159], lm[145]) + dist(lm[386], lm[374])) / (2 * dist(lm[33], lm[133]));
-    if (ear < 0.22) { isClosed = true; } 
-    else if (isClosed && ear > 0.25) { 
-        blinks++; document.getElementById('blink-val').innerText = blinks; isClosed = false; 
+    // ضبط حجم الكانفاس ليتطابق مع فيديو الكاميرا
+    if (canvas.width !== video.videoWidth) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
     }
 
-    // رصد الاندهاش (ارتفاع الحواجب)
-    const browDist = dist(lm[105], lm[159]);
-    document.getElementById('emotion-val').innerText = (browDist > 0.06) ? "تعجب / اندهاش 😲" : "طبيعي";
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // رسم صورة الكاميرا الخام أولاً
+    ctx.drawImage(res.image, 0, 0, canvas.width, canvas.height);
 
-    // رصد الكتابة (النظر للأسفل)
-    document.getElementById('status-val').innerText = (lm[468].y > 0.65) ? "يكتب الآن 📝" : "مركّز ✅";
+    if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
+      const lm = res.multiFaceLandmarks[0];
+      drawConnectors(ctx, lm, FACEMESH_TESSELATION, {color: '#C0C0C040', lineWidth: 1});
 
-    // رسم تتبع اليد إذا وجدت
-    if (lastHandResults && lastHandResults.length > 0) {
-      for (const h of lastHandResults) {
-        drawConnectors(ctx, h, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 2});
-        if (dist(h[9], lm[152]) < 0.08) document.getElementById('hand-val').innerText = "تفكير / ملل 🤔";
-        else document.getElementById('hand-val').innerText = "يد نشطة ✋";
-      }
+      // 1. عداد الرمش
+      const ear = (dist(lm[159], lm[145]) + dist(lm[386], lm[374])) / (2 * dist(lm[33], lm[133]));
+      if (ear < 0.22) { isClosed = true; }
+      else if (isClosed && ear > 0.25) { blinks++; document.getElementById('blink-val').innerText = blinks; isClosed = false; }
+
+      // 2. الاندهاش (الحواجب)
+      const browDist = dist(lm[105], lm[159]);
+      document.getElementById('emotion-val').innerText = (browDist > 0.06) ? "تعجب / اندهاش 😲" : "طبيعي";
+
+      // 3. الكتابة (النظر للأسفل)
+      document.getElementById('status-val').innerText = (lm[468].y > 0.65) ? "يكتب الآن 📝" : "مركّز ✅";
+      
+      // إرسال لليد
+      await hands.send({image: res.image});
+    }
+
+    if (lastHandRes && lastHandRes.length > 0) {
+      drawConnectors(ctx, lastHandRes[0], HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 2});
+      document.getElementById('hand-val').innerText = "تم رصد اليد ✋";
     } else {
       document.getElementById('hand-val').innerText = "لا يوجد يد";
     }
@@ -132,11 +121,8 @@
     ctx.restore();
   });
 
-  // تشغيل الكاميرا
   const camera = new Camera(video, {
-    onFrame: async () => {
-      await faceMesh.send({image: video});
-    },
+    onFrame: async () => { await faceMesh.send({image: video}); },
     width: 640, height: 480
   });
   camera.start();
