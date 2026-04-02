@@ -2,39 +2,42 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>نظام آية Ghesseier v22 - الإصدار السريع</title>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <title>نظام آية Ghesseier v23</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <style>
     :root { --accent: #8b5cf6; --bg: #020617; --card: #0f172a; }
     body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
-    #side-panel { width: 300px; background: var(--card); padding: 20px; border-left: 1px solid #1e293b; display: flex; flex-direction: column; gap: 15px; z-index: 100; }
+    #side-panel { width: 300px; background: var(--card); padding: 20px; border-left: 1px solid #1e293b; display: flex; flex-direction: column; gap: 15px; z-index: 100; box-shadow: -5px 0 15px rgba(0,0,0,0.5); }
     #viewport { flex: 1; position: relative; background: #000; display: flex; justify-content: center; align-items: center; }
     canvas { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); z-index: 10; }
     video { display: none; }
     .stat-card { background: #1e293b; padding: 12px; border-radius: 10px; border-right: 4px solid var(--accent); }
-    .value { font-size: 1.2rem; font-weight: bold; margin-top: 5px; color: #f8fafc; }
     .label { font-size: 0.8rem; color: #94a3b8; }
-    #start-btn { position: fixed; inset: 0; z-index: 1000; background: var(--bg); display: flex; justify-content: center; align-items: center; }
-    button.main { padding: 20px 50px; background: var(--accent); color: white; border: none; border-radius: 50px; font-size: 1.5rem; cursor: pointer; }
+    .value { font-size: 1.2rem; font-weight: bold; margin-top: 5px; }
+    #start-screen { position: fixed; inset: 0; z-index: 1000; background: var(--bg); display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; }
+    button.main { padding: 15px 40px; background: var(--accent); color: white; border: none; border-radius: 30px; font-size: 1.2rem; cursor: pointer; font-weight: bold; }
   </style>
 </head>
 <body>
 
-<div id="start-btn"><button class="main" onclick="startSystem()">تشغيل المحرك السريع v22</button></div>
+<div id="start-screen">
+    <h1 style="color:var(--accent);">Aya System Pro v23</h1>
+    <button class="main" onclick="startSystem()">تشغيل النظام المطور</button>
+</div>
 
 <aside id="side-panel">
-  <h2 style="color:var(--accent); text-align:center;">AYA AI</h2>
-  <div class="stat-card"><div class="label">الرمش</div><div id="blink-val" class="value">0</div></div>
+  <h2 style="color:var(--accent); text-align:center;">AYA AI Analysis</h2>
+  <div class="stat-card"><div class="label">عداد الرمش</div><div id="blink-val" class="value">0</div></div>
   <div class="stat-card"><div class="label">تعبير الوجه</div><div id="emotion-val" class="value">--</div></div>
   <div class="stat-card"><div class="label">نشاط الفم</div><div id="mouth-val" class="value">صامت</div></div>
   <div class="stat-card"><div class="label">حالة اليد</div><div id="hand-val" class="value">غير مرصودة</div></div>
-  <p style="font-size:0.7rem; color:#475569; text-align:center;">نظام معالجة خفيف - بدون تجمد</p>
+  <p style="font-size:0.7rem; color:#475569; text-align:center;">دقة عالية + أداء مستقر</p>
 </aside>
 
 <main id="viewport">
-  <video id="input_video"></video>
+  <video id="input_video" playsinline></video>
   <canvas id="output_canvas"></canvas>
 </main>
 
@@ -45,35 +48,34 @@
 
   const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
 
-  // إعداد المحركات بأدنى استهلاك للطاقة
+  // إعادة القوة للمحركات (دقة عالية)
   const faceMesh = new FaceMesh({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
-  faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: 0.4 });
+  faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
   faceMesh.onResults(res => { faceRes = res.multiFaceLandmarks ? res.multiFaceLandmarks[0] : null; });
 
   const hands = new Hands({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
-  hands.setOptions({ maxNumHands: 1, minDetectionConfidence: 0.4 });
+  hands.setOptions({ maxNumHands: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
   hands.onResults(res => { handRes = res.multiHandLandmarks ? res.multiHandLandmarks[0] : null; });
 
-  window.startSystem = () => {
-    document.getElementById('start-btn').style.display = 'none';
-    const stream = navigator.mediaDevices.getUserMedia({video: {width: 640, height: 480, frameRate: 30}})
-      .then(s => {
-        video.srcObject = s;
-        video.play();
-        render();
-        runAI();
-      });
+  window.startSystem = async () => {
+    document.getElementById('start-screen').style.display = 'none';
+    const stream = await navigator.mediaDevices.getUserMedia({video: {width: 640, height: 480}});
+    video.srcObject = stream;
+    video.play();
+    
+    // تشغيل الرسم والذكاء الاصطناعي بشكل منفصل
+    render();
+    processAI();
   };
 
-  async function runAI() {
+  // وظيفة الذكاء الاصطناعي: تعمل بأقصى دقة ولكن لا تعطل الفيديو
+  async function processAI() {
     if (video.readyState === 4) {
-        // معالجة الوجه واليد بشكل متوازي وسريع
-        await Promise.all([
-            faceMesh.send({image: video}),
-            hands.send({image: video})
-        ]);
+        await faceMesh.send({image: video});
+        await hands.send({image: video});
     }
-    setTimeout(runAI, 30); // 33 إطار في الثانية للذكاء الاصطناعي كافية جداً
+    // "سر السرعة": نترك 30 ملي ثانية للمتصفح ليرتاح بين كل عملية تحليل
+    setTimeout(processAI, 30);
   }
 
   function render() {
@@ -83,26 +85,23 @@
     ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+    // 1. معالجة الوجه (رسم خفيف وتحليل دقيق)
     if (faceRes) {
         const lm = faceRes;
-        // رسم نقاط خفيفة جداً بدلاً من الشبكة الثقيلة لعدم التجمد
-        ctx.fillStyle = "#8b5cf6";
-        [1, 4, 33, 263, 13, 14].forEach(i => {
-            const p = lm[i];
-            ctx.beginPath(); ctx.arc(p.x * canvas.width, p.y * canvas.height, 3, 0, 2*Math.PI); ctx.fill();
-        });
+        // رسم شبكة خفيفة جداً شفافة لكي لا تتعب العين أو المعالج
+        drawConnectors(ctx, lm, FACEMESH_TESSELATION, {color: '#ffffff20', lineWidth: 0.5});
 
-        if (!calibrated && frames < 30) {
+        if (!calibrated && frames < 40) {
             bEAR = (dist(lm[159], lm[145]) + dist(lm[386], lm[374])) / (2 * dist(lm[33], lm[133]));
             bBrow = dist(lm[105], lm[159]);
             bMouth = dist(lm[13], lm[14]);
-            frames++; if(frames === 30) calibrated = true;
+            frames++; if(frames === 40) calibrated = true;
         }
 
         if (calibrated) {
             const cEAR = (dist(lm[159], lm[145]) + dist(lm[386], lm[374])) / (2 * dist(lm[33], lm[133]));
-            if (cEAR < bEAR * 0.75) isClosed = true;
-            else if (isClosed && cEAR > bEAR * 0.85) { blinks++; isClosed = false; document.getElementById('blink-val').innerText = blinks; }
+            if (cEAR < bEAR * 0.78) isClosed = true;
+            else if (isClosed && cEAR > bEAR * 0.88) { blinks++; isClosed = false; document.getElementById('blink-val').innerText = blinks; }
 
             const cBrow = dist(lm[105], lm[159]);
             document.getElementById('emotion-val').innerText = (cBrow > bBrow * 1.3) ? "مندهش 😲" : "طبيعي";
@@ -112,8 +111,9 @@
         }
     }
 
+    // 2. معالجة اليد (مستقلة تماماً)
     if (handRes) {
-        drawConnectors(ctx, handRes, HAND_CONNECTIONS, {color: '#10b981', lineWidth: 2});
+        drawConnectors(ctx, handRes, HAND_CONNECTIONS, {color: '#8b5cf6', lineWidth: 2});
         document.getElementById('hand-val').innerText = "تم الرصد ✅";
     } else {
         document.getElementById('hand-val').innerText = "غير مرصودة";
