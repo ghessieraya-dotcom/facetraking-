@@ -1,66 +1,118 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>Final Camera Test</title>
+  <title>تتبع الوجه الذكي - MediaPipe</title>
+  
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+
   <style>
-    body { font-family: sans-serif; text-align: center; background: #1a1a1a; color: white; padding: 20px; }
-    #video { border: 4px solid #333; border-radius: 10px; width: 100%; max-width: 400px; height: auto; }
-    #status { margin: 20px; padding: 15px; background: #222; border-radius: 8px; font-weight: bold; }
-    .error { color: #ff4d4d; border: 1px solid #ff4d4d; }
-    .success { color: #00ff88; }
+    body { 
+      margin: 0; 
+      background: #1e272e; 
+      color: white; 
+      text-align: center; 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      overflow: hidden;
+    }
+    #status { 
+      padding: 20px; 
+      background: #2f3640; 
+      font-size: 1.2rem;
+      border-bottom: 2px solid #00d2d3;
+    }
+    .container { 
+      position: relative; 
+      width: 100vw; 
+      height: 80vh; 
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #input_video { 
+      position: absolute;
+      width: 90%; 
+      max-width: 640px;
+      border-radius: 15px;
+      transform: scaleX(-1); /* مرآة */
+    }
+    #output_canvas { 
+      position: absolute; 
+      width: 90%; 
+      max-width: 640px;
+      transform: scaleX(-1);
+      z-index: 10;
+    }
   </style>
 </head>
+
 <body>
-
-  <h2>Step 1: Check Camera</h2>
-  <div id="status">Initializing...</div>
+  <div id="status">⏳ جاري تحميل محرك الذكاء الاصطناعي...</div>
   
-  <video id="video" preload autoplay loop muted playsinline></video>
+  <div class="container">
+    <video id="input_video"></video>
+    <canvas id="output_canvas"></canvas>
+  </div>
 
-  <script>
-    window.onload = function() {
-      var status = document.getElementById('status');
+  <script type="module">
+    const videoElement = document.getElementById('input_video');
+    const canvasElement = document.getElementById('output_canvas');
+    const canvasCtx = canvasElement.getContext('2d');
+    const statusDiv = document.getElementById('status');
+
+    // إعدادات الحجم للكانفاس
+    canvasElement.width = 640;
+    canvasElement.height = 480;
+
+    function onResults(results) {
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
       
-      // Check if tracking.js loaded correctly
-      if (typeof tracking === 'undefined') {
-        status.className = 'error';
-        status.innerText = "CRITICAL ERROR: tracking-min.js not found in this folder!";
-        return;
+      if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        statusDiv.innerText = "✅ تم الاتصال: وجهك تحت المراقبة الآن!";
+        statusDiv.style.color = "#1dd1a1";
+
+        for (const landmarks of results.multiFaceLandmarks) {
+          // رسم الشبكة الرفيعة على الوجه
+          drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION,
+                         {color: '#C0C0C070', lineWidth: 1});
+        }
+      } else {
+        statusDiv.innerText = "🔍 ابحث عن وجه... (تأكدي من الإضاءة)";
+        statusDiv.style.color = "#ff6b6b";
       }
-
-      try {
-     var tracker = new tracking.ObjectTracker('face');
-
-// زيادة حساسية الكشف
-tracker.setInitialScale(4);
-tracker.setStepSize(2);
-tracker.setEdgesDensity(0.1);
-
-tracker.on('track', function(event) {
-    if (event.data.length > 0) {
-        status.innerText = "SUCCESS: Face Detected!";
-        status.className = "success";
-        
-        // رسم مربع حول الوجه (اختياري للتأكد)
-        event.data.forEach(function(rect) {
-            console.log("Face found at: " + rect.x + "," + rect.y);
-        });
-    } else {
-        status.innerText = "Scanning... Try more light or moving back.";
-        status.className = "";
+      canvasCtx.restore();
     }
-});
 
-// تشغيل الكاميرا
-tracking.track('#video', tracker, { camera: true });
-      } catch (err) {
-        status.innerText = "Error: " + err.message;
-      }
-    };
+    const faceMesh = new FaceMesh({locateFile: (file) => {
+      return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+    }});
+
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true, // مهم جداً لتحليل العين والفم لاحقاً
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+
+    faceMesh.onResults(onResults);
+
+    // تشغيل الكاميرا مع معالجة الأخطاء
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        await faceMesh.send({image: videoElement});
+      },
+      width: 640,
+      height: 480
+    });
+
+    camera.start().catch(err => {
+      alert("خطأ في تشغيل الكاميرا: " + err);
+      statusDiv.innerText = "❌ فشل تشغيل الكاميرا";
+    });
   </script>
 </body>
 </html>
+
