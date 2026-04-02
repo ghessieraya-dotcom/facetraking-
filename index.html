@@ -2,63 +2,76 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>نظام آية التحليلي v10</title>
+  <title>نظام آية الذكي - النسخة السريعة v11</title>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <style>
-    :root { --accent: #818cf8; --bg: #020617; --card: #0f172a; --success: #10b981; --warning: #f59e0b; --danger: #ef4444; }
+    :root { --accent: #6366f1; --bg: #020617; --card: #0f172a; --success: #10b981; --danger: #ef4444; }
     body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
     
-    #side-panel { width: 350px; background: var(--card); padding: 20px; border-left: 1px solid #1e293b; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
-    .monitor-box { background: #1e293b; padding: 12px; border-radius: 10px; border-right: 4px solid var(--accent); }
-    .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-left: 8px; }
-    .bg-success { background: var(--success); box-shadow: 0 0 8px var(--success); }
-    .bg-warning { background: var(--warning); box-shadow: 0 0 8px var(--warning); }
-    .bg-danger { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+    /* اللوحة الجانبية */
+    #side-panel { width: 320px; background: var(--card); padding: 20px; border-left: 1px solid #1e293b; display: flex; flex-direction: column; gap: 15px; z-index: 100; }
+    .stat-card { background: #1e293b; padding: 15px; border-radius: 12px; border-right: 4px solid var(--accent); }
+    .stat-label { font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px; }
+    .stat-value { font-size: 1.2rem; font-weight: bold; color: #f8fafc; }
+
+    /* شريط المعايرة الأخضر */
+    #calib-container { width: 100%; background: #334155; height: 12px; border-radius: 6px; overflow: hidden; display: none; margin-top: 10px; }
+    #calib-bar { width: 0%; height: 100%; background: var(--success); transition: width 0.1s linear; }
 
     #display { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; }
-    video, canvas { position: absolute; width: 90%; max-width: 650px; border-radius: 20px; transform: scaleX(-1); }
+    video, canvas { position: absolute; width: 85%; max-width: 600px; border-radius: 20px; transform: scaleX(-1); }
     
-    #alarm { display: none; position: fixed; inset: 0; z-index: 1000; flex-direction: column; justify-content: center; align-items: center; transition: 0.5s; }
-    .btn { padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    #status-msg { position: absolute; top: 20px; background: rgba(15, 23, 42, 0.9); padding: 10px 20px; border-radius: 50px; border: 1px solid var(--accent); z-index: 100; }
+    #alarm { display: none; position: fixed; inset: 0; z-index: 1000; flex-direction: column; justify-content: center; align-items: center; text-align: center; background: rgba(0,0,0,0.8); }
+    
+    button { padding: 12px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; background: var(--accent); color: white; transition: 0.3s; }
   </style>
 </head>
-<body><aside id="side-panel">
-  <h3 style="text-align:center; color:var(--accent);">AYA ANALYTICS V10</h3>
+<body>
+
+<aside id="side-panel">
+  <h2 style="color:var(--accent); text-align:center; margin-bottom:10px;">AYA AI v11</h2>
   
-  <div class="monitor-box">
-    <div class="stat-label"><span id="dot-eye" class="status-dot"></span> حالة العين</div>
-    <div id="eye-text" style="font-weight:bold;">مستقر</div>
+  <div class="stat-card">
+    <div class="stat-label">حالة النظام</div>
+    <div id="sys-status" class="stat-value">بانتظار الوجه...</div>
+    <div id="calib-container">
+        <div id="calib-bar"></div>
+    </div>
   </div>
 
-  <div class="monitor-box">
-    <div class="stat-label"><span id="dot-hand" class="status-dot"></span> تحليل اليد والجسد</div>
-    <div id="hand-text" style="font-weight:bold;">لا يوجد يد</div>
+  <div class="stat-card">
+    <div class="stat-label">تحليل السلوك الحالي</div>
+    <div id="behavior-val" style="color:var(--success); font-weight:bold;">جاري الرصد...</div>
+    <div id="behavior-desc" style="font-size:0.7rem; color:#94a3b8; margin-top:5px;">سأخبركِ هنا بما أراه</div>
   </div>
 
-  <div class="monitor-box">
-    <div class="stat-label"><span id="dot-focus" class="status-dot"></span> مؤشر السلوك</div>
-    <div id="focus-text" style="font-weight:bold;">بانتظار الحركة</div>
-    <div id="timer-info" style="font-size:0.7rem; color:#94a3b8;"></div>
+  <div class="stat-card">
+    <div class="stat-label">عداد الرمش</div>
+    <div id="blink-val" class="stat-value">0</div>
   </div>
 
-  <button class="btn" onclick="startCalibration()">🎯 معايرة (60 ثانية)</button>
-  <button class="btn" style="background:#334155" onclick="location.reload()">🔄 إعادة تشغيل</button>
+  <button onclick="startFastCalibration()">🎯 بدء المعايرة السريعة</button>
+  <button style="background:#334155; margin-top:5px;" onclick="location.reload()">🔄 إعادة تشغيل</button>
 </aside>
 
 <main id="display">
-  <video id="webcam" playsinline style="display:none;"></video>
+  <div id="status-msg"><b id="msg-text">جاري تشغيل الكاميرا...</b></div>
+  <video id="webcam" playsinline style="opacity:0.1;"></video>
   <canvas id="visualizer"></canvas>
+
   <div id="alarm">
-    <h1 style="color:white; font-size:3rem; text-shadow: 2px 2px 10px black;">تنبيه!</h1>
-    <button class="btn" style="background:white; color:black; padding:15px 40px;" onclick="stopAlarm()">أنا هنا</button>
+    <h1 id="alarm-text" style="font-size:3rem; color:white;">تنبيه!</h1>
+    <button style="background:white; color:black; padding:15px 40px;" onclick="stopAlarm()">أنا مستيقظة</button>
   </div>
-</main><script type="module">
+</main>
+
+<script type="module">
   const video = document.getElementById('webcam'), canvas = document.getElementById('visualizer'), ctx = canvas.getContext('2d');
-  let bEAR = 0.22, bBrow = 0.15, lastLM = null, lastHand = null;
-  let timers = { sleep: null, absence: null, boredom: null, writing: null };
+  let bEAR = 0.22, bBrow = 0.15, lastLM = null;
+  let blinks = 0, lastE = true;
+  let timers = { sleep: null, absence: null, bored: null };
   const audioAlarm = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
 
   const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
@@ -68,95 +81,89 @@
     return v / h;
   }
 
-  // --- المعايرة ---
-  window.startCalibration = () => {
-    let s = [];
-    const int = setInterval(() => {
-      if(lastLM) s.push({e: getEAR(lastLM), b: dist(lastLM[52], lastLM[282])});
-      if(s.length >= 100) {
-        bEAR = s.reduce((a,c)=>a+c.e,0)/100; bBrow = s.reduce((a,c)=>a+c.b,0)/100;
-        clearInterval(int); alert("تمت المعايرة بنجاح ✅");
+  // --- معايرة سريعة ببار أخضر ---
+  window.startFastCalibration = () => {
+    if(!lastLM) return alert("وجهكِ غير مرئي للكاميرا!");
+    let samples = [];
+    const bar = document.getElementById('calib-bar');
+    const container = document.getElementById('calib-container');
+    container.style.display = 'block';
+    
+    const calibInterval = setInterval(() => {
+      if(lastLM) samples.push({e: getEAR(lastLM), b: dist(lastLM[52], lastLM[282])});
+      let progress = (samples.length / 50) * 100;
+      bar.style.width = progress + "%";
+      
+      if(samples.length >= 50) {
+        bEAR = samples.reduce((a,c)=>a+c.e,0)/50;
+        bBrow = samples.reduce((a,c)=>a+c.b,0)/50;
+        clearInterval(calibInterval);
+        container.style.display = 'none';
+        document.getElementById('sys-status').innerText = "النظام جاهز ✅";
       }
-    }, 30);
+    }, 100); // 5 ثوانٍ فقط (50 عينة)
   };
 
   function onResults(res) {
     const now = Date.now();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(res.image, 0, 0, canvas.width, canvas.height);
-
-    // 1. رصد الغياب (10 ثوانٍ - بصري فقط)
     if (!res.multiFaceLandmarks || res.multiFaceLandmarks.length === 0) {
       if (!timers.absence) timers.absence = now;
-      if (now - timers.absence > 10000) triggerAlarm("غياب عن الشاشة ⚠️", "rgba(255,0,0,0.4)", false);
+      if (now - timers.absence > 10000) triggerAlarm("غياب عن المكتب ⚠️", "rgba(255,0,0,0.5)", false);
       return;
-    } 
-    stopAlarm(); timers.absence = null;
+    }
+    
+    timers.absence = null;
     lastLM = res.multiFaceLandmarks[0];
-
-    // 2. رصد النوم (5 ثوانٍ - بصري + صوتي)
     const ear = getEAR(lastLM);
+    
+    // رصد الرمش
+    if (ear < bEAR * 0.65 && lastE) { lastE = false; }
+    else if (ear > bEAR * 0.75 && !lastE) { blinks++; document.getElementById('blink-val').innerText = blinks; lastE = true; }
+
+    // رصد النوم (5 ثوانٍ)
     if (ear < bEAR * 0.6) {
       if (!timers.sleep) timers.sleep = now;
-      if (now - timers.sleep > 5000) triggerAlarm("استيقظي يا آية! 🚨", "red", true);
-    } else { timers.sleep = null; }
+      if (now - timers.sleep > 5000) triggerAlarm("آية، استيقظي! 🚨", "red", true);
+    } else { timers.sleep = null; stopAlarm(); }
 
-    // 3. رصد اليد والملل (30 ثانية)
-    let handOnCheek = false;
-    if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
-      const h = res.multiHandLandmarks[0];
-      const distHandCheek = dist(h[9], lastLM[234]); // المسافة بين راحة اليد والخد
-      if (distHandCheek < 0.07) {
-        handOnCheek = true;
-        if (!timers.boredom) timers.boredom = now;
-        let elapsed = Math.floor((now - timers.boredom)/1000);
-        document.getElementById('timer-info').innerText = `مؤقت الثبات: ${elapsed}s / 30s`;
-        if (elapsed > 30) updateUI('hand', "ملل مستمر 🥱", "bg-warning");
-        else updateUI('hand', "وضعية مريحة", "bg-success");
-      }
-    }
-    if (!handOnCheek) { timers.boredom = null; updateUI('hand', "طبيعي", "bg-success"); }
-
-    // 4. مقومات التركيز (كتابة / تفكير)
+    // رصد الكتابة والملل (تحليل مبسط سريع)
     const iris = lastLM[468];
-    if (iris.y > 0.62) updateUI('focus', "يكتب 📝", "bg-success");
-    else if (dist(lastLM[52], lastLM[282]) < bBrow * 0.9) updateUI('focus', "تركيز 🔥", "bg-success");
-    else updateUI('focus', "مستقر", "bg-success");
+    const bLabel = document.getElementById('behavior-val'), bDesc = document.getElementById('behavior-desc');
+    
+    if (iris.y > 0.65) {
+        bLabel.innerText = "يكتب الآن 📝"; bDesc.innerText = "وضعية دراسة نشطة";
+    } else if (dist(lastLM[13], lastLM[14]) < 0.01 && ear > bEAR * 0.8) {
+        if(!timers.bored) timers.bored = now;
+        if(now - timers.bored > 30000) { bLabel.innerText = "ملل / ثبات 🥱"; bDesc.innerText = "تنبيه: تجاوزتِ 30 ثانية دون حركة"; }
+    } else {
+        timers.bored = null;
+        bLabel.innerText = "وضع طبيعي"; bDesc.innerText = "تركيز مستقر";
+    }
 
-    drawConnectors(ctx, lastLM, FACEMESH_TESSELATION, {color: '#ffffff30', lineWidth: 1});
-  }function triggerAlarm(msg, color, withSound) {
+    // الرسم (خفيف جداً لتقليل التعليق)
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(res.image, 0, 0, canvas.width, canvas.height);
+    drawConnectors(ctx, lastLM, FACEMESH_TESSELATION, {color: '#6366f130', lineWidth: 1});
+  }
+
+  function triggerAlarm(msg, color, sound) {
     const a = document.getElementById('alarm');
     a.style.display = 'flex';
-    a.style.background = color;
-    a.querySelector('h1').innerText = msg;
-    if (withSound) audioAlarm.play();
+    a.style.backgroundColor = color;
+    document.getElementById('alarm-text').innerText = msg;
+    if(sound) audioAlarm.play();
   }
 
   window.stopAlarm = () => {
     document.getElementById('alarm').style.display = 'none';
     audioAlarm.pause();
-    timers.sleep = null; timers.absence = null;
   };
 
-  function updateUI(type, text, color) {
-    document.getElementById(`${type}-text`).innerText = text;
-    document.getElementById(`dot-${type}`).className = `status-dot ${color}`;
-  }
-
   const faceMesh = new FaceMesh({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
-  faceMesh.setOptions({maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.5});
+  faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: 0.5});
   faceMesh.onResults(onResults);
 
-  const hands = new Hands({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
-  hands.setOptions({maxNumHands: 1, minDetectionConfidence: 0.5});
-  hands.onResults((resHands) => { 
-    // دمج نتائج اليد مع الوجه يتم داخل onResults الأصلي عبر تمرير البيانات
-  });
-
-  new Camera(video, {onFrame: async () => { 
-    await faceMesh.send({image: video});
-    await hands.send({image: video}); 
-  }, width: 640, height: 480}).start();
+  new Camera(video, {onFrame: async () => { await faceMesh.send({image: video}); }, width: 640, height: 480}).start();
 </script>
 </body>
 </html>
