@@ -2,185 +2,101 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>نظام آية للتحليل السلوكي - الإصدار الاحترافي</title>
+  <title>Aya AI - High Sensitivity</title>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-
   <style>
-    :root { --bg: #020617; --panel: #0f172a; --accent: #6366f1; --success: #10b981; --warning: #f59e0b; --danger: #ef4444; --text: #f8fafc; }
-    body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui; display: flex; height: 100vh; overflow: hidden; }
-    #sidebar { width: 350px; background: var(--panel); border-left: 1px solid #1e293b; padding: 30px; display: flex; flex-direction: column; gap: 20px; z-index: 50; }
-    .card { background: #1e293b; padding: 20px; border-radius: 20px; border: 1px solid #334155; position: relative; }
-    .card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--accent); }
-    .card-title { font-size: 0.85rem; color: #94a3b8; font-weight: 600; margin-bottom: 10px; }
-    .card-value { font-size: 2.2rem; font-weight: 800; }
-    #main-viewport { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle at center, #1e1b4b 0%, #020617 100%); }
-    #video-container { position: relative; width: 90%; max-width: 850px; aspect-ratio: 4/3; border-radius: 35px; overflow: hidden; border: 4px solid #1e293b; }
-    video, canvas { position: absolute; width: 100%; height: 100%; transform: scaleX(-1); object-fit: cover; }
-    #status-badge { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(15px); padding: 15px 45px; border-radius: 100px; border: 2px solid var(--accent); display: flex; align-items: center; gap: 20px; z-index: 100; }
-    #current-emoji { font-size: 3rem; }
-    #emergency-overlay { display: none; position: fixed; inset: 0; background: rgba(127, 29, 29, 0.98); z-index: 1000; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-    button { padding: 18px; border-radius: 15px; border: none; font-weight: 700; cursor: pointer; transition: 0.3s; }
-    .primary-btn { background: var(--accent); color: white; }
-    #calib-tray { display: none; margin-top: 10px; }
-    .progress-track { width: 100%; height: 10px; background: #0f172a; border-radius: 10px; overflow: hidden; }
-    .progress-fill { width: 0%; height: 100%; background: var(--success); transition: 0.1s linear; }
+    body { margin: 0; background: #020617; color: white; font-family: sans-serif; overflow: hidden; display: flex; }
+    #sidebar { width: 300px; background: #0f172a; padding: 20px; border-left: 1px solid #334155; display: flex; flex-direction: column; gap: 15px; }
+    .card { background: #1e293b; padding: 15px; border-radius: 15px; border-right: 4px solid #6366f1; }
+    #viewport { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; }
+    video, canvas { position: absolute; width: 90%; height: 80%; border-radius: 20px; transform: scaleX(-1); object-fit: cover; }
+    canvas { z-index: 10; pointer-events: none; }
+    #badge { position: absolute; top: 20px; background: rgba(15, 23, 42, 0.9); padding: 10px 30px; border-radius: 50px; border: 2px solid #6366f1; z-index: 100; }
+    #emergency { display: none; position: fixed; inset: 0; background: rgba(153, 27, 27, 0.95); z-index: 1000; flex-direction: column; justify-content: center; align-items: center; }
+    button { padding: 15px; border-radius: 10px; border: none; cursor: pointer; font-weight: bold; background: #6366f1; color: white; }
   </style>
 </head>
 <body>
 
-  <aside id="sidebar">
-    <h1 style="font-size: 1.5rem; color: var(--accent); text-align: center;">AYA ANALYTICS</h1>
-    <div class="card">
-      <div class="card-title">مؤشر التركيز</div>
-      <div id="focus-score" class="card-value">100%</div>
-      <div id="focus-trend" style="font-size: 0.8rem; color: var(--success);">الحالة: مستقرة</div>
-    </div>
-    <div class="card">
-      <div class="card-title">تحليل العضلات</div>
-      <div id="muscle-label" style="font-weight: bold; color: var(--accent);">جاهز</div>
-      <div id="muscle-description" style="font-size: 0.8rem; opacity: 0.6;">انتظار المعايرة...</div>
-    </div>
-    <div class="card">
-      <div class="card-title">نشاط العين</div>
-      <div id="blink-count" class="card-value">0</div>
-    </div>
-    <div id="calib-tray">
-      <div class="progress-track"><div id="calib-fill" class="progress-fill"></div></div>
-    </div>
-    <button class="primary-btn" onclick="initiateDeepCalibration()">🎯 معايرة الملامح</button>
-    <button style="background:transparent; color:#94a3b8; border:1px solid #334155; margin-top:10px;" onclick="location.reload()">إعادة تشغيل</button>
-  </aside>
+<aside id="sidebar">
+  <h2 style="color:#6366f1; text-align:center;">AYA ANALYTICS</h2>
+  <div class="card"><div>التركيز التراكمي</div><h1 id="f-score">100%</h1></div>
+  <div class="card"><div>الحالة العضلية</div><p id="m-label" style="font-size:0.9rem;">بانتظار الوجه...</p></div>
+  <div class="card"><div>الرمش</div><h2 id="b-count">0</h2></div>
+  <button onclick="calibrate()">🎯 ابدأ المعايرة الآن</button>
+  <button style="background:#334155" onclick="location.reload()">🔄 تحديث</button>
+</aside>
 
-  <main id="main-viewport">
-    <div id="status-badge">
-      <span id="current-emoji">📖</span>
-      <div id="status-info">
-        <h3 id="status-headline" style="margin:0;">تحميل النظام...</h3>
-        <p id="status-subline" style="margin:0; font-size:0.8rem;">يرجى الانتظار</p>
-      </div>
-    </div>
-    <div id="video-container">
-      <video id="webcam" style="display:none;" playsinline></video>
-      <canvas id="visualizer"></canvas>
-    </div>
-    <div id="emergency-overlay">
-      <h1 style="font-size: 5rem; color: white;">⚠️ استيقظي!</h1>
-      <button style="background: white; color: var(--danger); padding: 20px 60px;" onclick="deactivateAlarm()">أنا مستيقظة</button>
-    </div>
-  </main>
+<main id="viewport">
+  <div id="badge"><b id="h-stat">جاري تشغيل الذكاء الاصطناعي...</b></div>
+  <video id="v" playsinline></video>
+  <canvas id="c"></canvas>
+  <div id="emergency"><h1>⚠️ آية! استيقظي!</h1><button onclick="stopA()">أنا مستيقظة</button></div>
+</main>
 
 <script type="module">
-  const video = document.getElementById('webcam');
-  const canvas = document.getElementById('visualizer');
-  const ctx = canvas.getContext('2d');
-  
-  // متغيرات الحالة
-  let baseEAR = 0.22, baseBrowGap = 0.15, baseMouthW = 0.1;
-  let lastLM = null, isCalibrating = false, blinkCount = 0;
-  let lastEyeState = true, sleepTimer = null, globalFocus = 100, frameCount = 0;
+  const video = document.getElementById('v'), canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+  let bEAR = 0.22, bBrow = 0.15, lastLM = null, sleepT = null, focus = 100, blinks = 0, lastE = true;
 
-  const getDist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
-
-  function calculateEAR(lm) {
-    const lV = getDist(lm[160], lm[144]) + getDist(lm[158], lm[153]);
-    const lH = getDist(lm[33], lm[133]) * 2;
-    const rV = getDist(lm[385], lm[380]) + getDist(lm[387], lm[373]);
-    const rH = getDist(lm[362], lm[263]) * 2;
-    return ((lV / lH) + (rV / rH)) / 2;
+  const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
+  function getEAR(lm) {
+    const v = dist(lm[160], lm[144]) + dist(lm[158], lm[153]) + dist(lm[385], lm[380]) + dist(lm[387], lm[373]);
+    const h = (dist(lm[33], lm[133]) + dist(lm[362], lm[263])) * 2;
+    return v / h;
   }
 
-  window.initiateDeepCalibration = function() {
-    if (!lastLM) { alert("انتظري رصد الوجه أولاً"); return; }
-    isCalibrating = true;
-    document.getElementById('calib-tray').style.display = 'block';
-    let s = { ear: [], brow: [], mouth: [] };
-    const interval = setInterval(() => {
-      if (lastLM) {
-        s.ear.push(calculateEAR(lastLM));
-        s.brow.push(getDist(lastLM[52], lastLM[282]));
-        s.mouth.push(getDist(lastLM[61], lastLM[291]));
-        document.getElementById('calib-fill').style.width = (s.ear.length * 2) + '%';
-      }
-      if (s.ear.length >= 50) {
-        clearInterval(interval);
-        baseEAR = s.ear.reduce((a,b)=>a+b)/50;
-        baseBrowGap = s.brow.reduce((a,b)=>a+b)/50;
-        baseMouthW = s.mouth.reduce((a,b)=>a+b)/50;
-        isCalibrating = false;
-        document.getElementById('calib-tray').style.display = 'none';
-        document.getElementById('status-headline').innerText = "تمت المعايرة ✅";
-      }
-    }, 40);
+  window.calibrate = () => {
+    if(!lastLM) return alert("لم يتم رصد وجهك بعد، تأكدي من الإضاءة");
+    let s = [];
+    const i = setInterval(() => {
+      if(lastLM) s.push(getEAR(lastLM));
+      if(s.length >= 40) { bEAR = s.reduce((a,b)=>a+b)/40; clearInterval(i); document.getElementById('h-stat').innerText = "تمت المعايرة ✅"; }
+    }, 50);
   };
 
-  function processBehavior(results) {
-    if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return;
-    lastLM = results.multiFaceLandmarks[0];
-    const lm = lastLM;
-    const ear = calculateEAR(lm);
-
-    // 1. منطق الرمش
-    if (ear < baseEAR * 0.62 && lastEyeState) { lastEyeState = false; }
-    else if (ear > baseEAR * 0.72 && !lastEyeState) { blinkCount++; document.getElementById('blink-count').innerText = blinkCount; lastEyeState = true; }
-
-    // 2. منطق النوم (5 ثوانٍ)
-    if (ear < baseEAR * 0.58) {
-      if (!sleepTimer) sleepTimer = Date.now();
-      if (Date.now() - sleepTimer > 5000) document.getElementById('emergency-overlay').style.display = 'flex';
-    } else {
-      sleepTimer = null;
-      document.getElementById('emergency-overlay').style.display = 'none';
+  function onResults(res) {
+    // التحقق من الرصد
+    if (!res.multiFaceLandmarks || res.multiFaceLandmarks.length === 0) {
+        document.getElementById('h-stat').innerText = "❌ وجهك غير مرئي للكاميرا";
+        return;
     }
+    
+    document.getElementById('h-stat').innerText = "✅ تم رصد الوجه";
+    lastLM = res.multiFaceLandmarks[0];
+    const ear = getEAR(lastLM);
 
-    // 3. تحليل الملامح
-    const bGap = getDist(lm[52], lm[282]);
-    const bH = (getDist(lm[52], lm[159]) + getDist(lm[282], lm[386])) / 2;
-    const mW = getDist(lm[61], lm[291]);
-    const mH = getDist(lm[13], lm[14]);
+    // الرمش والنوم
+    if (ear < bEAR * 0.6 && lastE) lastE = false;
+    else if (ear > bEAR * 0.7 && !lastE) { blinks++; document.getElementById('b-count').innerText = blinks; lastE = true; }
 
-    let rep = { e: "📖", h: "دراسة مستقرة", s: "حالة طبيعية", c: "#6366f1", m: "عضلات مسترخية" };
+    if (ear < bEAR * 0.55) {
+      if (!sleepT) sleepT = Date.now();
+      if (Date.now() - sleepT > 5000) document.getElementById('emergency').style.display = 'flex';
+    } else { sleepT = null; document.getElementById('emergency').style.display = 'none'; }
 
-    if (frameCount % 60 === 0) {
-      if (bGap < baseBrowGap * 0.92) globalFocus = Math.min(100, globalFocus + 0.5);
-      if (mH > 0.05 || blinkCount > 40) globalFocus = Math.max(0, globalFocus - 1);
-      document.getElementById('focus-score').innerText = Math.round(globalFocus) + "%";
-    }
+    // الملامح
+    const bG = dist(lastLM[52], lastLM[282]), mH = dist(lastLM[13], lastLM[14]);
+    if (bG < bBrow * 0.9) { document.getElementById('m-label').innerText = "تركيز عميق (تقطيب)"; }
+    else if (mH > 0.05) { document.getElementById('m-label').innerText = "ملل (تثاؤب/ارتخاء)"; }
+    else { document.getElementById('m-label').innerText = "وضعية طبيعية"; }
 
-    if (bGap < baseBrowGap * 0.85) rep = { e: "🔥", h: "تركيز عميق", s: "تقطيب حواجب", c: "#10b981", m: "انقباض العضلة المقطبة" };
-    else if (bH > baseBrowGap * 1.2) {
-      if (ear > baseEAR * 1.15) rep = { e: "😲", h: "تعجب", s: "اتساع الجبهة", c: "#3b82f6", m: "انكماش العضلة الجبهية" };
-      else rep = { e: "❓", h: "حيرة", s: "رفع حواجب", c: "#f59e0b", m: "توتر الجبهة" };
-    }
-    else if (mH > 0.06) rep = { e: "🥱", h: "ملل", s: "تثاؤب", c: "#a855f7", m: "ارتخاء الفك" };
-
-    document.getElementById('current-emoji').innerText = rep.e;
-    document.getElementById('status-headline').innerText = rep.h;
-    document.getElementById('status-subline').innerText = rep.s;
-    document.getElementById('muscle-label').innerText = rep.h;
-    document.getElementById('muscle-description').innerText = rep.m;
-    document.getElementById('status-badge').style.borderColor = rep.c;
-
-    ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-    drawConnectors(ctx, lm, FACEMESH_TESSELATION, {color: '#ffffff20', lineWidth: 0.5});
+    // الرسم
+    ctx.save(); ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(res.image, 0, 0, canvas.width, canvas.height);
+    drawConnectors(ctx, lastLM, FACEMESH_TESSELATION, {color: '#6366f130', lineWidth: 1});
     ctx.restore();
-    frameCount++;
   }
 
-  window.deactivateAlarm = () => { sleepTimer = null; document.getElementById('emergency-overlay').style.display='none'; };
+  window.stopA = () => { sleepT = null; document.getElementById('emergency').style.display = 'none'; };
 
   const faceMesh = new FaceMesh({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
-  faceMesh.setOptions({maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5});
-  faceMesh.onResults(processBehavior);
+  faceMesh.setOptions({maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.3, minTrackingConfidence:0.3});
+  faceMesh.onResults(onResults);
 
   const cam = new Camera(video, {onFrame: async () => { await faceMesh.send({image: video}); }, width: 640, height: 480});
-  cam.start().then(() => {
-    document.getElementById('status-headline').innerText = "في انتظار الوجه...";
-    document.getElementById('status-subline').innerText = "تم تشغيل الكاميرا";
-  });
+  cam.start();
 </script>
 </body>
 </html>
