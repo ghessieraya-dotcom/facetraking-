@@ -32,18 +32,30 @@
       }
 
       try {
-        var tracker = new tracking.ObjectTracker('face');
-        tracking.track('#video', tracker, { camera: true });
+     var tracker = new tracking.ObjectTracker('face');
 
-        tracker.on('track', function(event) {
-          if (event.data.length > 0) {
-            status.innerText = "SUCCESS: Student Detected!";
-            status.className = "success";
-          } else {
-            status.innerText = "Camera is ON. Looking for face...";
-            status.className = "";
-          }
+// زيادة حساسية الكشف
+tracker.setInitialScale(4);
+tracker.setStepSize(2);
+tracker.setEdgesDensity(0.1);
+
+tracker.on('track', function(event) {
+    if (event.data.length > 0) {
+        status.innerText = "SUCCESS: Face Detected!";
+        status.className = "success";
+        
+        // رسم مربع حول الوجه (اختياري للتأكد)
+        event.data.forEach(function(rect) {
+            console.log("Face found at: " + rect.x + "," + rect.y);
         });
+    } else {
+        status.innerText = "Scanning... Try more light or moving back.";
+        status.className = "";
+    }
+});
+
+// تشغيل الكاميرا
+tracking.track('#video', tracker, { camera: true });
       } catch (err) {
         status.innerText = "Error: " + err.message;
       }
