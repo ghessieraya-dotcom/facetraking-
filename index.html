@@ -1,105 +1,153 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <title>نظام آية - نسخة الإنقاذ v12.3</title>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script type="module">
+  const video = document.getElementById('input_video'), canvas = document.getElementById('output_canvas'), ctx = canvas.getContext('2d');
   
-  <style>
-    body { margin: 0; background: #020617; color: white; font-family: sans-serif; text-align: center; }
-    #status-bar { background: #1e293b; padding: 15px; border-bottom: 2px solid #6366f1; display: flex; justify-content: space-around; }
-    .val { color: #10b981; font-weight: bold; font-size: 1.2rem; }
-    #container { position: relative; width: 100vw; height: 80vh; background: black; }
-    video, canvas { position: absolute; top:0; left:0; width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); }
-    #error-msg { color: #ef4444; padding: 20px; display: none; }
-  </style>
-</head>
-<body>
+  // المتغيرات المرجعية العلمية (للمعايرة)
+  let bEAR = 0.22, bBrow = 0.15, blinks = 0, lastE = true;
+  let lastFaceLM = null, lastHandLM = null;
+  
+  // المؤقتات (توقيتات آية الخاصة)
+  let timers = { sleep: null, absence: null, boredom: null, yawn: null };
+  const SETTINGS = { SLEEP: 5000, ABSENCE: 10000, BOREDOM: 30000, YAWN: 2000 };
+  
+  // فلاتر الكلام
+  let mouthActivity = [];
+  const audioAlarm = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
 
-<div id="status-bar">
-  <div>الرمش: <span id="blink-count" class="val">0</span></div>
-  <div>الحالة: <span id="state-text" class="val">بانتظار الكاميرا</span></div>
-</div>
-
-<div id="error-msg">⚠️ عذراً آية، لم نتمكن من تشغيل الكاميرا. تأكدي من إغلاق أي تطبيق آخر يستخدمها واضغطي تحديث.</div>
-
-<div id="container">
-  <video id="input_video" playsinline></video>
-  <canvas id="output_canvas"></canvas>
-</div>
-
-<script>
-  const videoElement = document.getElementById('input_video');
-  const canvasElement = document.getElementById('output_canvas');
-  const canvasCtx = canvasElement.getContext('2d');
-  const blinkDisplay = document.getElementById('blink-count');
-  const stateDisplay = document.getElementById('state-text');
-
-  let blinks = 0;
-  let isClosed = false;
-  let baseEAR = 0.25; // القيمة المرجعية للعين
-
-  // دالة حساب المسافة بين النقاط
-  function dist(p1, p2) { return Math.hypot(p1.x - p2.x, p1.y - p2.y); }
-
-  function onResults(results) {
-    // ضبط أبعاد الكانفاس لتطابق الفيديو
-    canvasElement.width = videoElement.videoWidth;
-    canvasElement.height = videoElement.videoHeight;
-
-    canvasCtx.save();
-    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-
-    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-      const lm = results.multiFaceLandmarks[0];
-      
-      // رسم شبكة الوجه (للتأكد من الدقة)
-      drawConnectors(canvasCtx, lm, FACEMESH_TESSELATION, {color: '#C0C0C040', lineWidth: 1});
-
-      // منطق الرمش (باستخدام نقاط الجفن العلوي والسفلي)
-      const eyeV = dist(lm[159], lm[145]) + dist(lm[386], lm[374]);
-      const eyeH = dist(lm[33], lm[133]) + dist(lm[362], lm[263]);
-      const ear = eyeV / (2 * eyeH);
-
-      if (ear < 0.18) { // العين مغلقة
-        if (!isClosed) {
-          isClosed = true;
-        }
-      } else { // العين مفتوحة
-        if (isClosed) {
-          blinks++;
-          blinkDisplay.innerText = blinks;
-          isClosed = false;
-        }
-      }
-
-      // رصد الكتابة (إذا كان بؤبؤ العين ينظر للأسفل)
-      const irisY = lm[468].y;
-      stateDisplay.innerText = (irisY > 0.65) ? "يكتب الآن 📝" : "مركّز ✅";
-    }
-    canvasCtx.restore();
+  const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
+  
+  function getEAR(lm) {
+    const v = dist(lm[159], lm[145]) + dist(lm[386], lm[374]);
+    const h = dist(lm[33], lm[133]) + dist(lm[362], lm[263]);
+    return v / (2 * h);
   }
 
-  const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-  faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-  faceMesh.onResults(onResults);
+  // --- المعايرة الدقيقة (10 ثوانٍ) ---
+  window.startCalibration = () => {
+    if(!lastFaceLM) return alert("الوجه غير مرصود");
+    let samples = [];
+    const bar = document.getElementById('calib-bar');
+    document.getElementById('calib-container').style.display = 'block';
+    document.getElementById('calib-status').innerText = "جاري الحفظ... حافظي على ثباتكِ ⏳";
+    
+    const interval = setInterval(() => {
+      if(lastFaceLM) samples.push({e: getEAR(lastFaceLM), b: dist(lastFaceLM[52], lastFaceLM[282])});
+      bar.style.width = (samples.length / 100 * 100) + "%";
+      if(samples.length >= 100) {
+        bEAR = samples.reduce((a,c)=>a+c.e,0)/100; bBrow = samples.reduce((a,c)=>a+c.b,0)/100;
+        clearInterval(interval);
+        document.getElementById('calib-container').style.display = 'none';
+        document.getElementById('calib-status').innerText = "تمت المعايرة بنجاح ✅";
+      }
+    }, 100);
+  };
 
-  // تشغيل الكاميرا بأبسط طريقة ممكنة
-  const camera = new Camera(videoElement, {
+  function onResults(faceRes, handRes) {
+    document.getElementById('loading-overlay').style.display = 'none'; // إخفاء التحميل
+    const now = Date.now();
+    ctx.save(); ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(faceRes.image, 0,0,canvas.width,canvas.height);
+
+    // 1. رصد الغياب (10 ثوانٍ)
+    if (!faceRes.multiFaceLandmarks || faceRes.multiFaceLandmarks.length === 0) {
+      if (!timers.absence) timers.absence = now;
+      if (now - timers.absence > SETTINGS.ABSENCE) triggerAlarm("غياب عن منطقة الدراسة ⚠️", "rgba(255,0,0,0.5)", false);
+      return;
+    }
+    stopAlarm(); timers.absence = null; lastFaceLM = faceRes.multiFaceLandmarks[0];
+    const lm = lastFaceLM;
+    drawConnectors(ctx, lm, FACEMESH_TESSELATION, {color: '#C0C0C040', lineWidth: 1});
+
+    // 2. عداد الرمش (النسخة الدقيقة المصلحة)
+    const ear = getEAR(lm);
+    if (ear < bEAR * 0.7 && lastE) { lastE = false; toggleCard('card-blink', 'active'); }
+    else if (ear > bEAR * 0.8 && !lastE) { blinks++; document.getElementById('blink-val').innerText = blinks; lastE = true; toggleCard('card-blink', 'normal'); }
+
+    // 3. تحليل الفم (كلام/تثاؤب)
+    const mLabel = document.getElementById('mouth-val'), mDesc = document.getElementById('mouth-desc');
+    const mH = dist(lm[13], lm[14]);
+    if (mH > 0.05) {
+      mouthActivity.push(now); mouthActivity = mouthActivity.filter(t => now - t < 2000);
+      if (mouthActivity.length > 5) { updateUI('mouth', "🗣️ يتحدث", "active", "رصد نشاط لغوي مستمر"); timers.yawn = null; }
+      else {
+        if (!timers.yawn) timers.yawn = now;
+        if (now - timers.yawn > SETTINGS.YAWN) updateUI('mouth', "🥱 تثاؤب", "danger", "تنبيه: بوادر إرهاق عميق");
+      }
+    } else { updateUI('mouth', "مستقر", "normal", "عضلات الفك مسترخية"); timers.yawn = null; mouthActivity = []; }
+
+    // 4. تحليل اليد (Hands) - دقة كاملة
+    let handOnFace = false;
+    if (handRes && handRes.multiHandLandmarks && handRes.multiHandLandmarks.length > 0) {
+        const handLM = handRes.multiHandLandmarks[0];
+        const palmCenter = handLM[9], forehead = lastFaceLM[10], cheekL = lastFaceLM[234], cheekR = lastFaceLM[454], chin = lastFaceLM[152];
+        
+        if (dist(palmCenter, forehead) < 0.07) { updateUI('hand', "😟 حيرة / قلق", "danger", "اليد على الجبهة تدل على ارتياب"); handOnFace = true; }
+        else if (dist(palmCenter, chin) < 0.06 && dist(handLM[8], chin) < 0.03) { updateUI('hand', "🤔 تفكير عميق", "active", "وضعية اليد تدل على تحليل المعلومات"); handOnFace = true; }
+        else if (dist(palmCenter, cheekL) < 0.07 || dist(palmCenter, cheekR) < 0.07) {
+            handOnFace = true;
+            if(!timers.boredom) timers.boredom = now;
+            if(now - timers.boredom > SETTINGS.BOREDOM) updateUI('hand', "🥱 ملل / إرهاق", "warning", "تم تجاوز 30 ثانية ثبات باليد");
+            else updateUI('hand', "وضعية مريحة", "active", `ثبات اليد: ${Math.floor((now - timers.boredom)/1000)}s`);
+        }
+        drawConnectors(ctx, handLM, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 2});
+    }
+    if(!handOnFace) { timers.boredom = null; updateUI('hand', "مستقر", "normal", "اليد ليست على الوجه"); }
+
+    // 5. منبه النوم (5 ثوانٍ)
+    if (ear < bEAR * 0.6) {
+        if (!timers.sleep) timers.sleep = now;
+        if (now - timers.sleep > SETTINGS.SLEEP) triggerAlarm("آية، استيقظي! 🚨", "red", true);
+    } else { timers.sleep = null; stopAlarm(); }
+
+    // 6. رصد الكتابة والحالة
+    if (lastFaceLM[468].y > 0.62) updateUI('focus', "يكتب 📝", "active", "تركيز منخفض المستوى (على الورق)");
+    
+    ctx.restore();
+  }
+
+  // دوال مساعدة للواجهة
+  function updateUI(type, val, status, desc) {
+    if(type === 'focus') return; // مؤقت لدمجها لاحقاً
+    document.getElementById(`${type}-val`).innerText = val;
+    document.getElementById(`${type}-desc`).innerText = desc;
+    toggleCard(`card-${type}`, status);
+  }
+  function toggleCard(id, status) {
+    const card = document.getElementById(id); if(!card) return;
+    card.className = "stat-card"; // reset
+    if(status === 'active') card.classList.add('active-card');
+    if(status === 'warning') card.classList.add('warning-card');
+    if(status === 'danger') card.classList.add('danger-card');
+  }
+  function triggerAlarm(msg, color, sound) {
+    const a = document.getElementById('alarm'); a.style.display = 'flex'; a.style.backgroundColor = color; a.querySelector('h1').innerText = msg; if(sound) audioAlarm.play();
+  }
+  window.stopAlarm = () => { document.getElementById('alarm').style.display = 'none'; audioAlarm.pause(); timers.sleep = null; };
+
+  // إعداد المحركات والتشغيل (الأداء السلس)
+  const faceMesh = new FaceMesh({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
+  faceMesh.setOptions({maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.7, minTrackingConfidence:0.7});
+  faceMesh.onResults(async (faceResults) => {
+    // إرسال البيانات لمحرك اليد بالتوازي لضمان السلاسة
+    await hands.send({image: faceResults.image});
+    lastFaceResults = faceResults;
+  });
+
+  const hands = new Hands({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+  hands.setOptions({maxNumHands:1, minDetectionConfidence:0.7, minTrackingConfidence:0.7});
+  hands.onResults((handResults) => {
+    if(lastFaceResults) onResults(lastFaceResults, handResults);
+  });
+
+  let lastFaceResults = null; // للتأكد من المزامنة
+  const camera = new Camera(video, {
     onFrame: async () => {
-      await faceMesh.send({image: videoElement});
+      // تعديل الأداء لتقليل التعليق
+      if (video.readyState === 4) {
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        await faceMesh.send({image: video});
+      }
     },
-    width: 640,
-    height: 480
-  });
-
-  camera.start().catch(err => {
-    document.getElementById('error-msg').style.display = 'block';
-    stateDisplay.innerText = "خطأ في الاتصال";
-  });
+    width: 1280, height: 720
+  }); camera.start();
 </script>
 </body>
 </html>
