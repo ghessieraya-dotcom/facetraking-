@@ -3,92 +3,26 @@
 <head>
   <meta charset="utf-8">
   <title>نظام آية للتحليل السلوكي - الإصدار الاحترافي</title>
-  
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 
   <style>
-    :root {
-      --bg: #020617;
-      --panel: #0f172a;
-      --accent: #6366f1;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --text: #f8fafc;
-    }
-
-    body {
-      margin: 0; background: var(--bg); color: var(--text);
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      display: flex; height: 100vh; overflow: hidden;
-    }
-
-    /* لوحة التحكم الجانبية - عرض التقارير */
-    #sidebar {
-      width: 350px; background: var(--panel); border-left: 1px solid #1e293b;
-      padding: 30px; display: flex; flex-direction: column; gap: 20px; z-index: 50;
-      box-shadow: 10px 0 30px rgba(0,0,0,0.5);
-    }
-
-    .card {
-      background: #1e293b; padding: 20px; border-radius: 20px;
-      border: 1px solid #334155; position: relative; overflow: hidden;
-    }
-
-    .card::before {
-      content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--accent);
-    }
-
-    .card-title { font-size: 0.85rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; }
-    .card-value { font-size: 2.2rem; font-weight: 800; color: var(--text); }
-    .card-detail { font-size: 0.9rem; margin-top: 8px; color: var(--success); font-weight: 500; }
-
-    /* منطقة العرض الرئيسية */
-    #main-viewport {
-      flex: 1; position: relative; display: flex; justify-content: center; align-items: center;
-      background: radial-gradient(circle at center, #1e1b4b 0%, #020617 100%);
-    }
-
-    #video-container {
-      position: relative; width: 90%; max-width: 850px; aspect-ratio: 4/3;
-      border-radius: 35px; overflow: hidden; border: 4px solid #1e293b;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    }
-
+    :root { --bg: #020617; --panel: #0f172a; --accent: #6366f1; --success: #10b981; --warning: #f59e0b; --danger: #ef4444; --text: #f8fafc; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui; display: flex; height: 100vh; overflow: hidden; }
+    #sidebar { width: 350px; background: var(--panel); border-left: 1px solid #1e293b; padding: 30px; display: flex; flex-direction: column; gap: 20px; z-index: 50; }
+    .card { background: #1e293b; padding: 20px; border-radius: 20px; border: 1px solid #334155; position: relative; }
+    .card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--accent); }
+    .card-title { font-size: 0.85rem; color: #94a3b8; font-weight: 600; margin-bottom: 10px; }
+    .card-value { font-size: 2.2rem; font-weight: 800; }
+    #main-viewport { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle at center, #1e1b4b 0%, #020617 100%); }
+    #video-container { position: relative; width: 90%; max-width: 850px; aspect-ratio: 4/3; border-radius: 35px; overflow: hidden; border: 4px solid #1e293b; }
     video, canvas { position: absolute; width: 100%; height: 100%; transform: scaleX(-1); object-fit: cover; }
-
-    /* لوحة الحالة الطافية */
-    #status-badge {
-      position: absolute; top: 40px; left: 50%; transform: translateX(-50%);
-      background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(15px);
-      padding: 15px 45px; border-radius: 100px; border: 2px solid var(--accent);
-      display: flex; align-items: center; gap: 20px; z-index: 100;
-      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
+    #status-badge { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(15px); padding: 15px 45px; border-radius: 100px; border: 2px solid var(--accent); display: flex; align-items: center; gap: 20px; z-index: 100; }
     #current-emoji { font-size: 3rem; }
-    #status-info h3 { margin: 0; font-size: 1.4rem; letter-spacing: -0.5px; }
-    #status-info p { margin: 0; font-size: 0.9rem; opacity: 0.7; }
-
-    /* شاشة الإنذار القصوى */
-    #emergency-overlay {
-      display: none; position: fixed; inset: 0; background: rgba(127, 29, 29, 0.98);
-      z-index: 1000; flex-direction: column; justify-content: center; align-items: center;
-      text-align: center; animation: red-alert 1s infinite alternate;
-    }
-
-    @keyframes red-alert { from { background: rgba(127, 29, 29, 0.98); } to { background: rgba(185, 28, 28, 1); } }
-
-    button {
-      padding: 18px; border-radius: 15px; border: none; font-weight: 700;
-      cursor: pointer; transition: 0.3s; font-size: 1rem;
-    }
-    .primary-btn { background: var(--accent); color: white; box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.5); }
-    .secondary-btn { background: rgba(255,255,255,0.05); color: #94a3b8; border: 1px solid #334155; }
-
-    /* شريط المعايرة */
+    #emergency-overlay { display: none; position: fixed; inset: 0; background: rgba(127, 29, 29, 0.98); z-index: 1000; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+    button { padding: 18px; border-radius: 15px; border: none; font-weight: 700; cursor: pointer; transition: 0.3s; }
+    .primary-btn { background: var(--accent); color: white; }
     #calib-tray { display: none; margin-top: 10px; }
     .progress-track { width: 100%; height: 10px; background: #0f172a; border-radius: 10px; overflow: hidden; }
     .progress-fill { width: 0%; height: 100%; background: var(--success); transition: 0.1s linear; }
@@ -97,273 +31,156 @@
 <body>
 
   <aside id="sidebar">
-    <div style="text-align: center; margin-bottom: 20px;">
-      <h1 style="margin:0; font-size: 1.5rem; color: var(--accent);">AYA BRAIN ANALYTICS</h1>
-      <small style="opacity: 0.5;">نظام مراقبة السلوك v3.5</small>
-    </div>
-
+    <h1 style="font-size: 1.5rem; color: var(--accent); text-align: center;">AYA ANALYTICS</h1>
     <div class="card">
-      <div class="card-title">مؤشر التركيز (Focus Score)</div>
+      <div class="card-title">مؤشر التركيز</div>
       <div id="focus-score" class="card-value">100%</div>
-      <div id="focus-trend" class="card-detail">الحالة: مستقرة</div>
+      <div id="focus-trend" style="font-size: 0.8rem; color: var(--success);">الحالة: مستقرة</div>
     </div>
-
     <div class="card">
-      <div class="card-title">تحليل العضلات (Myography)</div>
-      <div id="muscle-label" style="font-weight: bold; color: var(--accent);">جاهز للبدء</div>
-      <div id="muscle-description" style="font-size: 0.8rem; margin-top: 5px; opacity: 0.6;">انتظار بيانات المعايرة...</div>
+      <div class="card-title">تحليل العضلات</div>
+      <div id="muscle-label" style="font-weight: bold; color: var(--accent);">جاهز</div>
+      <div id="muscle-description" style="font-size: 0.8rem; opacity: 0.6;">انتظار المعايرة...</div>
     </div>
-
     <div class="card">
-      <div class="card-title">نشاط العين (Ocular)</div>
-      <div style="display: flex; justify-content: space-between; align-items: baseline;">
-        <div id="blink-count" class="card-value">0</div>
-        <div style="font-size: 0.8rem; opacity: 0.5;">رمشة/جلسة</div>
-      </div>
+      <div class="card-title">نشاط العين</div>
+      <div id="blink-count" class="card-value">0</div>
     </div>
-
     <div id="calib-tray">
-      <div style="font-size: 0.75rem; margin-bottom: 8px;">جاري رسم خارطة الوجه الحيوية...</div>
       <div class="progress-track"><div id="calib-fill" class="progress-fill"></div></div>
     </div>
-
-    <button class="primary-btn" onclick="initiateDeepCalibration()">🎯 معايرة الملامح الحيوية</button>
-    <button class="secondary-btn" onclick="location.reload()">🔄 إعادة تهيئة النظام</button>
+    <button class="primary-btn" onclick="initiateDeepCalibration()">🎯 معايرة الملامح</button>
+    <button style="background:transparent; color:#94a3b8; border:1px solid #334155; margin-top:10px;" onclick="location.reload()">إعادة تشغيل</button>
   </aside>
 
   <main id="main-viewport">
     <div id="status-badge">
       <span id="current-emoji">📖</span>
       <div id="status-info">
-        <h3 id="status-headline">في انتظار الكاميرا</h3>
-        <p id="status-subline">يرجى السماح بالوصول للعدسة</p>
+        <h3 id="status-headline" style="margin:0;">تحميل النظام...</h3>
+        <p id="status-subline" style="margin:0; font-size:0.8rem;">يرجى الانتظار</p>
       </div>
     </div>
-
     <div id="video-container">
       <video id="webcam" style="display:none;" playsinline></video>
       <canvas id="visualizer"></canvas>
     </div>
-
     <div id="emergency-overlay">
-      <h1 style="font-size: 6rem; margin:0;">⚠️ تنبيه إغلاق!</h1>
-      <p style="font-size: 2rem;">آية، لقد تم رصد حالة نوم مستمرة لأكثر من 5 ثوانٍ.</p>
-      <button style="background: white; color: var(--danger); padding: 20px 80px; font-size: 1.5rem; margin-top: 30px;" onclick="deactivateAlarm()">لقد استيقظت</button>
+      <h1 style="font-size: 5rem; color: white;">⚠️ استيقظي!</h1>
+      <button style="background: white; color: var(--danger); padding: 20px 60px;" onclick="deactivateAlarm()">أنا مستيقظة</button>
     </div>
   </main>
+
 <script type="module">
-  // مراجع الواجهة (UI References)
   const video = document.getElementById('webcam');
   const canvas = document.getElementById('visualizer');
   const ctx = canvas.getContext('2d');
   
-  const focusVal = document.getElementById('focus-score');
-  const muscleLbl = document.getElementById('muscle-label');
-  const muscleDesc = document.getElementById('muscle-description');
-  const blinkVal = document.getElementById('blink-count');
-  const emoji = document.getElementById('current-emoji');
-  const headline = document.getElementById('status-headline');
-  const subline = document.getElementById('status-subline');
+  // متغيرات الحالة
+  let baseEAR = 0.22, baseBrowGap = 0.15, baseMouthW = 0.1;
+  let lastLM = null, isCalibrating = false, blinkCount = 0;
+  let lastEyeState = true, sleepTimer = null, globalFocus = 100, frameCount = 0;
 
-  // متغيرات الأنظمة الحيوية
-  let baseEAR = 0.22; 
-  let baseBrowGap = 0.15; 
-  let baseMouthW = 0.1;
-  let lastLM = null;
-  let isCalibrating = false;
-
-  // عدادات الرمش والزمن
-  let blinkCount = 0;
-  let lastEyeState = true; 
-  let sleepTimer = null;
-  let globalFocus = 100;
-  let frameCount = 0;
-
-  // 1. دالة حساب المسافة الثلاثية الأبعاد (Euclidean Distance)
   const getDist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
 
-  // 2. دالة حساب فتحة العين الدقيقة (Eye Aspect Ratio)
   function calculateEAR(lm) {
-    // العين اليمنى واليسرى لضمان الدقة
-    const leftV = getDist(lm[160], lm[144]) + getDist(lm[158], lm[153]);
-    const leftH = getDist(lm[33], lm[133]) * 2;
-    const rightV = getDist(lm[385], lm[380]) + getDist(lm[387], lm[373]);
-    const rightH = getDist(lm[362], lm[263]) * 2;
-    return ((leftV / leftH) + (rightV / rightH)) / 2;
+    const lV = getDist(lm[160], lm[144]) + getDist(lm[158], lm[153]);
+    const lH = getDist(lm[33], lm[133]) * 2;
+    const rV = getDist(lm[385], lm[380]) + getDist(lm[387], lm[373]);
+    const rH = getDist(lm[362], lm[263]) * 2;
+    return ((lV / lH) + (rV / rH)) / 2;
   }
 
-  // 3. نظام المعايرة العميقة (Deep Calibration)
   window.initiateDeepCalibration = function() {
-    if (!lastLM) { alert("يرجى الانتظار حتى يتم رصد الوجه"); return; }
+    if (!lastLM) { alert("انتظري رصد الوجه أولاً"); return; }
     isCalibrating = true;
     document.getElementById('calib-tray').style.display = 'block';
-    let samples = { ear: [], brow: [], mouth: [] };
-
-    const calibClock = setInterval(() => {
+    let s = { ear: [], brow: [], mouth: [] };
+    const interval = setInterval(() => {
       if (lastLM) {
-        samples.ear.push(calculateEAR(lastLM));
-        samples.brow.push(getDist(lastLM[52], lastLM[282])); // المسافة بين الحاجبين
-        samples.mouth.push(getDist(lastLM[61], lastLM[291])); // عرض الفم الطبيعي
-        
-        const progress = (samples.ear.length / 50) * 100;
-        document.getElementById('calib-fill').style.width = progress + '%';
+        s.ear.push(calculateEAR(lastLM));
+        s.brow.push(getDist(lastLM[52], lastLM[282]));
+        s.mouth.push(getDist(lastLM[61], lastLM[291]));
+        document.getElementById('calib-fill').style.width = (s.ear.length * 2) + '%';
       }
-
-      if (samples.ear.length >= 50) {
-        clearInterval(calibClock);
-        baseEAR = samples.ear.reduce((a,b)=>a+b)/50;
-        baseBrowGap = samples.brow.reduce((a,b)=>a+b)/50;
-        baseMouthW = samples.mouth.reduce((a,b)=>a+b)/50;
-        
+      if (s.ear.length >= 50) {
+        clearInterval(interval);
+        baseEAR = s.ear.reduce((a,b)=>a+b)/50;
+        baseBrowGap = s.brow.reduce((a,b)=>a+b)/50;
+        baseMouthW = s.mouth.reduce((a,b)=>a+b)/50;
         isCalibrating = false;
         document.getElementById('calib-tray').style.display = 'none';
-        headline.innerText = "تمت المعايرة!";
-        subline.innerText = "النظام يقرأ ملامحكِ الآن بدقة 99%";
+        document.getElementById('status-headline').innerText = "تمت المعايرة ✅";
       }
-    }, 40); // تحديث سريع جداً لجمع البيانات
+    }, 40);
   };
 
-  // سيتم استكمال منطق الـ AI والـ 5 ثوانٍ في الجزء الثالث
-// 4. دالة معالجة الإطارات (Frame Processor)
   function processBehavior(results) {
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return;
     lastLM = results.multiFaceLandmarks[0];
     const lm = lastLM;
-
-    // --- تحليل العين والمنبه (الـ 5 ثوانٍ) ---
     const ear = calculateEAR(lm);
-    
-    // كشف الرمش السريع (أقل من 400ms)
-    if (ear < baseEAR * 0.62 && lastEyeState) {
-      lastEyeState = false; 
-    } else if (ear > baseEAR * 0.72 && !lastEyeState) {
-      blinkCount++;
-      blinkVal.innerText = blinkCount;
-      lastEyeState = true;
-    }
 
-    // كشف النوم العميق (المؤقت الزمني المستمر)
+    // 1. منطق الرمش
+    if (ear < baseEAR * 0.62 && lastEyeState) { lastEyeState = false; }
+    else if (ear > baseEAR * 0.72 && !lastEyeState) { blinkCount++; document.getElementById('blink-count').innerText = blinkCount; lastEyeState = true; }
+
+    // 2. منطق النوم (5 ثوانٍ)
     if (ear < baseEAR * 0.58) {
-      if (!sleepTimer) sleepTimer = Date.now(); // بدء الحساب فور الإغلاق
-      let duration = (Date.now() - sleepStart) / 1000;
-      
-      // التنبيه فقط إذا استمر الإغلاق 5 ثوانٍ متواصلة
-      if (Date.now() - sleepTimer > 5000) {
-        document.getElementById('emergency-overlay').style.display = 'flex';
-      }
+      if (!sleepTimer) sleepTimer = Date.now();
+      if (Date.now() - sleepTimer > 5000) document.getElementById('emergency-overlay').style.display = 'flex';
     } else {
-      sleepTimer = null; // إعادة ضبط المؤقت فور فتح العين
+      sleepTimer = null;
       document.getElementById('emergency-overlay').style.display = 'none';
     }
 
-    // --- تحليل العضلات المتقدم (Myography Logic) ---
-    const browGap = getDist(lm[52], lm[282]); // المسافة بين الحاجبين (التقطيب)
-    const browHeight = (getDist(lm[52], lm[159]) + getDist(lm[282], lm[386])) / 2; // ارتفاع الحاجب عن العين
-    const mouthW = getDist(lm[61], lm[291]); // عرض الفم
-    const mouthH = getDist(lm[13], lm[14]); // فتحة الفم (التثاؤب)
+    // 3. تحليل الملامح
+    const bGap = getDist(lm[52], lm[282]);
+    const bH = (getDist(lm[52], lm[159]) + getDist(lm[282], lm[386])) / 2;
+    const mW = getDist(lm[61], lm[291]);
+    const mH = getDist(lm[13], lm[14]);
 
-    let report = { e: "📖", h: "دراسة مستقرة", s: "حالة طبيعية", c: "#6366f1", m: "عضلات الوجه في وضع الاسترخاء" };
+    let rep = { e: "📖", h: "دراسة مستقرة", s: "حالة طبيعية", c: "#6366f1", m: "عضلات مسترخية" };
 
-    // حساب التركيز التراكمي (Focus AI)
-    if (frameCount % 60 === 0) { // تحديث كل ثانية تقريباً
-      if (browGap < baseBrowGap * 0.92) globalFocus = Math.min(100, globalFocus + 0.5); // زيادة طفيفة عند التقطيب (تركيز)
-      if (mouthH > 0.04 || blinkCount > 30) globalFocus = Math.max(0, globalFocus - 1.5); // نقص عند التعب أو كثرة الرمش
-      focusVal.innerText = Math.round(globalFocus) + "%";
-      document.getElementById('focus-trend').innerText = globalFocus > 70 ? "الحالة: إنتاجية عالية" : "الحالة: إجهاد بصرى";
+    if (frameCount % 60 === 0) {
+      if (bGap < baseBrowGap * 0.92) globalFocus = Math.min(100, globalFocus + 0.5);
+      if (mH > 0.05 || blinkCount > 40) globalFocus = Math.max(0, globalFocus - 1);
+      document.getElementById('focus-score').innerText = Math.round(globalFocus) + "%";
     }
 
-    // المصفوفة الشعورية الدقيقة
-    if (browGap < baseBrowGap * 0.85) {
-      report = { e: "🔥", h: "تركيز عميق", s: "انقباض العضلة المقطبة", c: "#10b981", m: "تقطيب الحاجبين نحو الداخل" };
-    } 
-    else if (browHeight > baseBrowGap * 1.25) { // الحواجب مرتفعة للأعلى
-      if (ear > baseEAR * 1.15) {
-        report = { e: "😲", h: "تعجب / انبهار", s: "اتساع الجبهة والعين", c: "#3b82f6", m: "انكماش العضلة الجبهية (كامل)" };
-      } else {
-        report = { e: "❓", h: "حيرة / عدم استيعاب", s: "رفع الحاجب مع ضيق العين", c: "#f59e0b", m: "توتر في الجزء العلوي من الوجه" };
-      }
-    } 
-    else if (mouthH > 0.06) {
-      report = { e: "🥱", h: "إرهاق / ملل", s: "انفتاح الفك السفلي", c: "#a855f7", m: "ارتخاء في العضلات الماضغة" };
-    } 
-    else if (mouthW > baseMouthW * 1.12) {
-      report = { e: "😊", h: "استيعاب / رضا", s: "تمدد عضلة الضحك", c: "#10b981", m: "ارتفاع زوايا الفم بالتساوي" };
+    if (bGap < baseBrowGap * 0.85) rep = { e: "🔥", h: "تركيز عميق", s: "تقطيب حواجب", c: "#10b981", m: "انقباض العضلة المقطبة" };
+    else if (bH > baseBrowGap * 1.2) {
+      if (ear > baseEAR * 1.15) rep = { e: "😲", h: "تعجب", s: "اتساع الجبهة", c: "#3b82f6", m: "انكماش العضلة الجبهية" };
+      else rep = { e: "❓", h: "حيرة", s: "رفع حواجب", c: "#f59e0b", m: "توتر الجبهة" };
     }
+    else if (mH > 0.06) rep = { e: "🥱", h: "ملل", s: "تثاؤب", c: "#a855f7", m: "ارتخاء الفك" };
 
-    // تحديث الواجهة (UI Update)
-    emoji.innerText = report.e;
-    headline.innerText = report.h;
-    subline.innerText = report.s;
-    muscleLbl.innerText = report.h;
-    muscleDesc.innerText = report.m;
-    document.getElementById('status-badge').style.borderColor = report.c;
+    document.getElementById('current-emoji').innerText = rep.e;
+    document.getElementById('status-headline').innerText = rep.h;
+    document.getElementById('status-subline').innerText = rep.s;
+    document.getElementById('muscle-label').innerText = rep.h;
+    document.getElementById('muscle-description').innerText = rep.m;
+    document.getElementById('status-badge').style.borderColor = rep.c;
 
-    // رسم الشبكة المرئية
-    drawVisuals(results);
-    frameCount++;
-  }
-
-  function drawVisuals(results) {
     ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-    if (results.multiFaceLandmarks) {
-      for (const landmarks of results.multiFaceLandmarks) {
-        drawConnectors(ctx, landmarks, FACEMESH_TESSELATION, {color: '#ffffff20', lineWidth: 0.5});
-      }
-    }
+    drawConnectors(ctx, lm, FACEMESH_TESSELATION, {color: '#ffffff20', lineWidth: 0.5});
     ctx.restore();
+    frameCount++;
   }
 
   window.deactivateAlarm = () => { sleepTimer = null; document.getElementById('emergency-overlay').style.display='none'; };
-// --- نظام تشغيل الكاميرا الآمن (Safe Camera Boot) ---
-  const faceMesh = new FaceMesh({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-  });
 
-  faceMesh.setOptions({
-    maxNumFaces: 1,
-    refineLandmarks: true,
-    minDetectionConfidence: 0.7,
-    minTrackingConfidence: 0.7
-  });
-
+  const faceMesh = new FaceMesh({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
+  faceMesh.setOptions({maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5});
   faceMesh.onResults(processBehavior);
 
-  // دالة تشغيل الكاميرا مع معالجة الأخطاء
-  async function startCamera() {
-    try {
-      const camera = new Camera(video, {
-        onFrame: async () => {
-          await faceMesh.send({image: video});
-        },
-        width: 640,
-        height: 480
-      });
-      
-      console.log("جاري محاولة تشغيل الكاميرا...");
-      await camera.start();
-      console.log("الكاميرا تعمل بنجاح!");
-      subline.innerText = "الكاميرا متصلة.. يرجى المعايرة";
-      
-    } catch (err) {
-      console.error("خطأ في الكاميرا: ", err);
-      headline.innerText = "خطأ في الكاميرا ⚠️";
-      subline.innerText = "تأكدي من إعطاء إذن الكاميرا للمتصفح وأغلقي أي تطبيق آخر يستخدمها.";
-      alert("لم نتمكن من الوصول للكاميرا. يرجى الضغط على قفل الأمان بجانب رابط الموقع وتفعيل Camera.");
-    }
-  }
-
-  // بدء التشغيل
-  startCamera();
-
-  // دالة إغلاق المنبه
-  window.deactivateAlarm = () => { 
-    sleepTimer = null; 
-    document.getElementById('emergency-overlay').style.display='none'; 
-  };
+  const cam = new Camera(video, {onFrame: async () => { await faceMesh.send({image: video}); }, width: 640, height: 480});
+  cam.start().then(() => {
+    document.getElementById('status-headline').innerText = "في انتظار الوجه...";
+    document.getElementById('status-subline').innerText = "تم تشغيل الكاميرا";
+  });
 </script>
- 
-</script>
-  </body>
+</body>
 </html>
