@@ -2,231 +2,309 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>مساعد الدراسة الذكي - النسخة الاحترافية</title>
+  <title>Aya Smart Study Assistant v2.0</title>
+  
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 
   <style>
-    body { margin: 0; background: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
-    
-    /* لوحة التحليل العلوية */
-    #analysis-panel {
-      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-      background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(12px);
-      padding: 15px 35px; border-radius: 50px; border: 2px solid rgba(255,255,255,0.1);
-      display: flex; align-items: center; gap: 20px; z-index: 100; transition: 0.5s;
+    :root {
+      --primary: #3b82f6;
+      --danger: #ef4444;
+      --success: #10b981;
+      --bg: #0f172a;
+      --panel: rgba(30, 41, 59, 0.7);
     }
 
-    #blink-badge { background: #3b82f6; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
-    #status-emoji { font-size: 1.8rem; }
-    #status-text { font-weight: 600; font-size: 1.1rem; min-width: 150px; }
-
-    .controls { position: fixed; bottom: 30px; width: 100%; text-align: center; z-index: 100; }
-    #progress-container { width: 250px; height: 8px; background: #334155; margin: 10px auto; display: none; border-radius: 10px; overflow: hidden; }
-    #progress-bar { height: 100%; background: #10b981; width: 0%; transition: width 0.1s; }
-
-    button { 
-      background: #3b82f6; border: none; color: white; padding: 14px 28px; 
-      border-radius: 15px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    body {
+      margin: 0; background: var(--bg); color: white;
+      font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden; display: flex;
     }
-    
-    .view { position: relative; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
-    video, canvas { position: absolute; width: 85%; max-width: 750px; border-radius: 30px; transform: scaleX(-1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-    
-    #overlay-alarm {
-      display: none; position: fixed; inset: 0; background: rgba(153, 27, 27, 0.95);
-      z-index: 1000; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+
+    /* لوحة التحكم الجانبية */
+    #sidebar {
+      width: 300px; background: var(--panel); backdrop-filter: blur(15px);
+      border-left: 1px solid rgba(255,255,255,0.1); padding: 20px;
+      display: flex; flex-direction: column; gap: 20px; z-index: 100;
     }
+
+    .stat-card {
+      background: rgba(255,255,255,0.05); padding: 15px;
+      border-radius: 15px; border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .stat-val { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
+
+    /* منطقة العرض الرئيسية */
+    #main-content {
+      flex: 1; position: relative; display: flex; 
+      justify-content: center; align-items: center;
+    }
+
+    video, canvas {
+      position: absolute; width: 85%; max-width: 800px;
+      border-radius: 30px; transform: scaleX(-1);
+      box-shadow: 0 0 50px rgba(0,0,0,0.5);
+    }
+
+    /* لوحة الحالة العلوية (Floating) */
+    #floating-status {
+      position: absolute; top: 30px; background: var(--panel);
+      padding: 10px 30px; border-radius: 50px; border: 2px solid var(--primary);
+      display: flex; align-items: center; gap: 15px; backdrop-filter: blur(10px);
+    }
+
+    #emoji-view { font-size: 2.5rem; }
+
+    /* منبه النوم الصارخ */
+    #alarm-overlay {
+      display: none; position: fixed; inset: 0;
+      background: radial-gradient(circle, rgba(239, 68, 68, 0.9) 0%, rgba(153, 27, 27, 1) 100%);
+      z-index: 1000; flex-direction: column; justify-content: center; align-items: center;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.9; } 50% { opacity: 1; } 100% { opacity: 0.9; }
+    }
+
+    /* أزرار التحكم */
+    .btn-group { display: flex; gap: 10px; margin-top: auto; }
+    button {
+      flex: 1; padding: 12px; border: none; border-radius: 10px;
+      cursor: pointer; font-weight: bold; transition: 0.3s;
+    }
+    .btn-calib { background: var(--success); color: white; }
+    .btn-reset { background: rgba(255,255,255,0.1); color: white; }
+
+    /* شريط المعايرة */
+    #calib-progress-box { display: none; margin-top: 10px; }
+    #bar-outer { width: 100%; height: 6px; background: #334155; border-radius: 10px; }
+    #bar-inner { width: 0%; height: 100%; background: var(--success); transition: 0.1s; }
   </style>
 </head>
 
 <body>
-  <div id="analysis-panel">
-    <div id="blink-badge">الرمشات: <span id="blink-count">0</span></div>
-    <span id="status-emoji">⏳</span>
-    <span id="status-text">جاري التحليل...</span>
+  <div id="sidebar">
+    <h2 style="margin:0; color: var(--primary);">📊 تقرير الدراسة</h2>
+    
+    <div class="stat-card">
+      <div>معدل الرمش (دقيقة)</div>
+      <div id="blink-rate" class="stat-val">0</div>
+    </div>
+
+    <div class="stat-card">
+      <div>حالة العضلات</div>
+      <div id="muscle-status" style="color: #94a3b8;">جاري التحليل...</div>
+    </div>
+
+    <div class="stat-card">
+      <div>التركيز التراكمي</div>
+      <div id="focus-score" class="stat-val">100%</div>
+    </div>
+
+    <div id="calib-progress-box">
+      <div style="font-size: 0.8rem; margin-bottom: 5px;">جاري حفظ ملامحكِ...</div>
+      <div id="bar-outer"><div id="bar-inner"></div></div>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn-calib" onclick="startDeepCalibration()">🎯 معايرة ذكية</button>
+      <button class="btn-reset" onclick="resetStats()">🔄 تصفير</button>
+    </div>
   </div>
 
-  <div id="overlay-alarm">
-    <h1 style="font-size: 5rem; margin: 0;">😴 أووو! أنتِ نائمة!</h1>
-    <p style="font-size: 1.8rem;">استيقظي فوراً، حصتكِ لم تنتهِ بعد!</p>
-  </div>
+  <div id="main-content">
+    <div id="floating-status">
+      <span id="emoji-view">💡</span>
+      <div>
+        <div id="main-status-text" style="font-weight: bold;">مرحباً آية</div>
+        <div id="sub-status-text" style="font-size: 0.8rem; opacity: 0.7;">جاهز للمراقبة</div>
+      </div>
+    </div>
 
-  <div class="view">
     <video id="input_video"></video>
     <canvas id="output_canvas"></canvas>
+
+    <div id="alarm-overlay">
+      <h1 style="font-size: 6rem; margin:0;">😴 استيقظي!</h1>
+      <p style="font-size: 2rem;">آية، مستقبلكِ يناديكِ.. لا وقت للنوم!</p>
+      <button style="background: white; color: var(--danger); padding: 15px 40px; margin-top: 20px; font-size: 1.5rem;" onclick="closeAlarm()">لقد استيقظت</button>
+    </div>
   </div>
+<script type="module">
+  const videoElement = document.getElementById('input_video');
+  const canvasElement = document.getElementById('output_canvas');
+  const canvasCtx = canvasElement.getContext('2d');
+  
+  // مراجع العناصر الواجهة
+  const emojiView = document.getElementById('emoji-view');
+  const mainStatus = document.getElementById('main-status-text');
+  const subStatus = document.getElementById('sub-status-text');
+  const blinkRateDisp = document.getElementById('blink-rate');
+  const muscleText = document.getElementById('muscle-status');
+  const alarmOverlay = document.getElementById('alarm-overlay');
+  const progressBar = document.getElementById('bar-inner');
 
-  <div class="controls">
-    <button id="calibBtn" onclick="startCalibration()">🎯 ضبط البصمة الشخصية (المعايرة)</button>
-    <div id="progress-container"><div id="progress-bar"></div></div>
-  </div>
+  // متغيرات الحالة الشخصية (Baselines)
+  let baseEAR = 0.22;
+  let baseBrowHeight = 0.15;
+  let baseMouthWidth = 0.1;
+  let currentEAR = 0;
+  
+  // عدادات الإحصائيات
+  let blinkCount = 0;
+  let lastEyeOpen = true;
+  let sessionStartTime = Date.now();
+  let isCalibrating = false;
 
-  <script type="module">
-    const videoElement = document.getElementById('input_video');
-    const canvasElement = document.getElementById('output_canvas');
-    const canvasCtx = canvasElement.getContext('2d');
-    const statusEmoji = document.getElementById('status-emoji');
-    const statusText = document.getElementById('status-text');
-    const blinkDisplay = document.getElementById('blink-count');
-    const overlay = document.getElementById('overlay-alarm');
+  // نظام استقرار الحالة (Anti-Flicker)
+  let lastStableMood = "هادئ";
+  let moodConfidence = 0;
 
-    // متغيرات المعايرة والتحليل
-    let baseEAR = 0.25;
-    let baseBrowDist = 0.14;
-    let currentEAR = 0;
-    let isCalibrating = false;
+  // دالة حساب المسافة بين نقطتين
+  function getDist(p1, p2) {
+    return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+  }
+
+  // --- المعايرة العميقة ---
+  window.startDeepCalibration = function() {
+    isCalibrating = true;
+    document.getElementById('calib-progress-box').style.display = 'block';
+    let samples = { ear: [], brow: [], mouth: [] };
     
-    // متغيرات الرمش (Blink Detection)
-    let blinkCount = 0;
-    let lastEyeStateOpen = true; 
-    let lastBlinkTime = 0;
-
-    // متغيرات الاستقرار (Anti-Flicker)
-    let lastStableStatus = { emoji: "📖", text: "بدء الدراسة" };
-    let statusCounter = 0;
-    let pendingStatus = null;
-    let sleepTimer = null;
-
-    function getDistance(p1, p2) {
-      return Math.hypot(p1.x - p2.x, p1.y - p2.y);
-    }
-
-    // --- المعايرة مع شريط التقدم ---
-    window.startCalibration = function() {
-      if (isCalibrating) return;
-      isCalibrating = true;
-      document.getElementById('progress-container').style.display = 'block';
-      document.getElementById('calibBtn').style.display = 'none';
-      let samplesEAR = [];
-      let samplesBrow = [];
-
-      const interval = setInterval(() => {
-        if (currentEAR > 0) {
-          samplesEAR.push(currentEAR);
-          const landmarks = window.lastLandmarks;
-          samplesBrow.push(getDistance(landmarks[52], landmarks[282]));
-          document.getElementById('progress-bar').style.width = (samplesEAR.length / 40 * 100) + '%';
-        }
-        if (samplesEAR.length >= 40) {
-          clearInterval(interval);
-          baseEAR = samplesEAR.reduce((a,b)=>a+b)/40;
-          baseBrowDist = samplesBrow.reduce((a,b)=>a+b)/40;
-          isCalibrating = false;
-          document.getElementById('progress-container').style.display = 'none';
-          document.getElementById('calibBtn').style.display = 'inline-block';
-          document.getElementById('calibBtn').innerText = "✅ تم التحديث";
-          alert("رائع! النظام الآن يعرف ملامحكِ الخاصة.");
-        }
-      }, 100);
-    };
-
-    // --- نظام عد الرمشات ---
-    function detectBlinks(ear) {
-      const threshold = baseEAR * 0.7;
-      if (ear < threshold && lastEyeStateOpen) {
-        lastEyeStateOpen = false; // العين انغلقت الآن
-        lastBlinkTime = Date.now();
-      } else if (ear >= threshold && !lastEyeStateOpen) {
-        // العين انفتحت الآن.. هل كانت رمشة سريعة؟
-        const duration = Date.now() - lastBlinkTime;
-        if (duration < 400) { // الرمشة الحقيقية أقل من 400ms
-           blinkCount++;
-           blinkDisplay.innerText = blinkCount;
-        }
-        lastEyeStateOpen = true;
-      }
-    }
-
-    // --- نظام استقرار الحالة (المنع من التشتت) ---
-    function updateStatus(newStatus) {
-      if (newStatus.text === lastStableStatus.text) {
-        statusCounter = 0;
-        return;
-      }
-      if (newStatus.text.includes("نوم")) { // النوم يظهر فوراً
-        applyStatus(newStatus);
-        return;
-      }
-      if (pendingStatus && newStatus.text === pendingStatus.text) {
-        statusCounter++;
-        if (statusCounter > 20) { // يجب ثبات الحالة لـ 20 إطاراً (حوالي ثانية)
-          applyStatus(newStatus);
-          statusCounter = 0;
-        }
-      } else {
-        pendingStatus = newStatus;
-        statusCounter = 0;
-      }
-    }
-
-    function applyStatus(status) {
-      lastStableStatus = status;
-      statusEmoji.innerText = status.emoji;
-      statusText.innerText = status.text;
-      document.getElementById('analysis-panel').style.borderColor = status.color || "rgba(255,255,255,0.1)";
-    }
-
-    function onResults(results) {
-      canvasCtx.save();
-      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-      
-      if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-        const landmarks = results.multiFaceLandmarks[0];
-        window.lastLandmarks = landmarks;
-
-        // حساب القياسات الأساسية
-        const leftEAR = (getDistance(landmarks[160], landmarks[144]) + getDistance(landmarks[158], landmarks[153])) / (2 * getDistance(landmarks[33], landmarks[133]));
-        const rightEAR = (getDistance(landmarks[385], landmarks[380]) + getDistance(landmarks[387], landmarks[373])) / (2 * getDistance(landmarks[362], landmarks[263]));
-        currentEAR = (leftEAR + rightEAR) / 2;
-
-        const browDist = getDistance(landmarks[52], landmarks[282]);
-        const mouthOpen = landmarks[14].y - landmarks[13].y;
-
-        // 1. تفعيل عداد الرمش
-        detectBlinks(currentEAR);
-
-        // 2. تحليل الحالة النفسية والتركيز
-        let currentStatus = { emoji: "📖", text: "دراسة مستقرة", color: "rgba(255,255,255,0.1)" };
-
-        if (currentEAR < baseEAR * 0.6) {
-          if (!sleepTimer) sleepTimer = Date.now();
-          if (Date.now() - sleepTimer > 2000) { // تأكيد النوم بعد ثانيتين
-             currentStatus = { emoji: "😴", text: "نوم مكتشف!", color: "#ef4444" };
-             overlay.style.display = "flex";
-          }
-        } else {
-          overlay.style.display = "none";
-          sleepTimer = null;
-
-          // تحليل الحواجب (تركيز vs حيرة)
-          if (browDist < baseBrowDist * 0.88) {
-             currentStatus = { emoji: "🔥", text: "تركيز عميق جداً", color: "#10b981" };
-          } else if (browDist > baseBrowDist * 1.18) {
-             currentStatus = { emoji: "❓", text: "تبدين حائرة.. هل الفكرة صعبة؟", color: "#f59e0b" };
-          } else if (mouthOpen > 0.06) {
-             currentStatus = { emoji: "🥱", text: "تعب / تثاؤب ملحوظ", color: "#8b5cf6" };
-          }
-        }
-
-        updateStatus(currentStatus);
+    const interval = setInterval(() => {
+      if (window.lastLandmarks) {
+        const lm = window.lastLandmarks;
+        samples.ear.push(calculateEAR(lm));
+        samples.brow.push(getDist(lm[52], lm[159]));
+        samples.mouth.push(getDist(lm[61], lm[291]));
         
-        // رسم شبكة خفيفة جداً لعدم إزعاج العين
-        drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {color: '#ffffff10', lineWidth: 1});
+        progressBar.style.width = (samples.ear.length / 40 * 100) + '%';
       }
-      canvasCtx.restore();
+
+      if (samples.ear.length >= 40) {
+        clearInterval(interval);
+        baseEAR = samples.ear.reduce((a,b)=>a+b)/40;
+        baseBrowHeight = samples.brow.reduce((a,b)=>a+b)/40;
+        baseMouthWidth = samples.mouth.reduce((a,b)=>a+b)/40;
+        
+        isCalibrating = false;
+        document.getElementById('calib-progress-box').style.display = 'none';
+        mainStatus.innerText = "تمت المعايرة بنجاح ✅";
+      }
+    }, 100);
+  };
+
+  function calculateEAR(lm) {
+    const v1 = getDist(lm[160], lm[144]);
+    const v2 = getDist(lm[158], lm[153]);
+    const h = getDist(lm[33], lm[133]);
+    return (v1 + v2) / (2 * h);
+  }
+
+  // --- تحليل الملامح بناءً على الجدول ---
+  function analyzeMood(lm) {
+    const ear = calculateEAR(lm);
+    const browH = getDist(lm[52], lm[159]); // مسافة الحاجب عن العين
+    const mouthW = getDist(lm[61], lm[291]); // عرض الفم
+    const mouthH = getDist(lm[13], lm[14]); // فتحة الفم
+    const smileAsym = Math.abs((lm[61].y - lm[13].y) - (lm[291].y - lm[13].y)); // عدم تماثل الابتسامة
+
+    let mood = { e: "📖", t: "دراسة مستقرة", c: "#3b82f6", m: "عضلات مسترخية" };
+
+    // 1. منطق النوم (أولوية قصوى)
+    if (ear < baseEAR * 0.55) {
+      mood = { e: "😴", t: "نوم مكتشف!", c: "#ef4444", m: "العين مغلقة" };
+    } 
+    // 2. منطق الحواجب (تركيز vs حيرة vs تعجب)
+    else if (browH < baseBrowHeight * 0.82) {
+      mood = { e: "🔥", t: "تركيز عميق", c: "#10b981", m: "حواجب مضمومة" };
+    } else if (browH > baseBrowHeight * 1.25) {
+      if (ear > baseEAR * 1.1) {
+        mood = { e: "😲", t: "تعجب / صدمة", c: "#3b82f6", m: "عيون واسعة جداً" };
+      } else {
+        mood = { e: "❓", t: "عدم فهم / حيرة", c: "#f59e0b", m: "حواجب مرتفعة" };
+      }
+    }
+    // 3. منطق الفم (تثاؤب vs ابتسامة رضا vs استخفاف)
+    else if (mouthH > 0.05) {
+      mood = { e: "🥱", t: "تعب / تثاؤب", c: "#8b5cf6", m: "فتحة فم واسعة" };
+    } else if (mouthW > baseMouthWidth * 1.18) {
+      if (smileAsym > 0.02) {
+        mood = { e: "😏", t: "استخفاف / سخرية", c: "#e67e22", m: "ابتسامة جانبية" };
+      } else {
+        mood = { e: "😊", t: "استيعاب وراحة", c: "#10b981", m: "زوايا فم مرتفعة" };
+      }
     }
 
-    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-    faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6});
-    faceMesh.onResults(onResults);
+    return mood;
+  }
 
-    const camera = new Camera(videoElement, {
-      onFrame: async () => { await faceMesh.send({image: videoElement}); },
-      width: 640, height: 480
-    });
-    camera.start();
-  </script>
-</body>
+  function onResults(results) {
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    
+    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+      const lm = results.multiFaceLandmarks[0];
+      window.lastLandmarks = lm;
+      
+      const ear = calculateEAR(lm);
+      currentEAR = ear;
+
+      // عد الرمشات
+      if (ear < baseEAR * 0.65 && lastEyeOpen) {
+        lastEyeOpen = false;
+      } else if (ear > baseEAR * 0.75 && !lastEyeOpen) {
+        blinkCount++;
+        blinkRateDisp.innerText = blinkCount;
+        lastEyeOpen = true;
+      }
+
+      // تطبيق تحليل الملامح مع نظام "التنعيم"
+      const currentMood = analyzeMood(lm);
+      
+      if (currentMood.t === lastStableMood) {
+        moodConfidence++;
+      } else {
+        moodConfidence = 0;
+        lastStableMood = currentMood.t;
+      }
+
+      // لا نغير الواجهة إلا إذا تأكدنا من الحالة لمدة 15 إطار (نصف ثانية تقريباً)
+      if (moodConfidence > 15 || currentMood.t.includes("نوم")) {
+        emojiView.innerText = currentMood.e;
+        mainStatus.innerText = currentMood.t;
+        muscleText.innerText = currentMood.m;
+        document.getElementById('floating-status').style.borderColor = currentMood.c;
+        
+        if (currentMood.t.includes("نوم")) {
+          alarmOverlay.style.display = "flex";
+        } else {
+          alarmOverlay.style.display = "none";
+        }
+      }
+
+      // رسم شبكة الوجه (خفيفة جداً)
+      drawConnectors(canvasCtx, lm, FACEMESH_TESSELATION, {color: '#ffffff10', lineWidth: 1});
+    }
+    canvasCtx.restore();
+  }
+
+  window.closeAlarm = () => alarmOverlay.style.display = "none";
+  window.resetStats = () => { blinkCount = 0; blinkRateDisp.innerText = "0"; };
+
+  const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+  faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5});
+  faceMesh.onResults(onResults);
+
+  const camera = new Camera(videoElement, {
+    onFrame: async () => { await faceMesh.send({image: videoElement}); },
+    width: 640, height: 480
+  });
+  camera.start();
+</script>
+  </body>
 </html>
