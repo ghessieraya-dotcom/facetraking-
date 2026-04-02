@@ -1,113 +1,157 @@
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>Aya AI - Fixed Connection</title>
+  <title>نظام آية المتكامل v6</title>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
   <style>
-    body { margin: 0; background: #020617; color: white; font-family: sans-serif; overflow: hidden; }
-    #status-layer { position: fixed; top: 0; width: 100%; background: rgba(15, 23, 42, 0.9); padding: 15px; z-index: 100; text-align: center; border-bottom: 2px solid #6366f1; }
-    #video-wrapper { position: relative; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
+    :root { --accent: #6366f1; --bg: #020617; --card: #0f172a; }
+    body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
+    
+    /* لوحة الإحصائيات الجانبية */
+    #side-panel { width: 300px; background: var(--card); padding: 20px; border-left: 1px solid #1e293b; display: flex; flex-direction: column; gap: 15px; z-index: 100; }
+    .stat-card { background: #1e293b; padding: 15px; border-radius: 12px; border-right: 4px solid var(--accent); }
+    .stat-label { font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px; }
+    .stat-value { font-size: 1.8rem; font-weight: bold; color: #f8fafc; }
+
+    /* منطقة العرض */
+    #display { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; }
     video, canvas { position: absolute; width: 90%; max-width: 600px; border-radius: 20px; transform: scaleX(-1); }
     canvas { z-index: 10; }
-    #alarm-screen { display: none; position: fixed; inset: 0; background: #7f1d1d; z-index: 1000; flex-direction: column; justify-content: center; align-items: center; }
-    .btn { padding: 12px 25px; border-radius: 10px; border: none; background: #6366f1; color: white; cursor: pointer; margin: 5px; font-weight: bold; }
+
+    /* التنبيهات */
+    #status-msg { position: absolute; top: 20px; background: rgba(15, 23, 42, 0.9); padding: 10px 25px; border-radius: 50px; border: 1px solid var(--accent); z-index: 100; }
+    #alarm { display: none; position: fixed; inset: 0; background: rgba(153, 27, 27, 0.95); z-index: 1000; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+    
+    button { padding: 12px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; background: var(--accent); color: white; transition: 0.3s; }
+    button:hover { opacity: 0.8; }
   </style>
 </head>
 <body>
 
-<div id="status-layer">
-  <h3 id="main-msg">جاري الاتصال بخوادم الذكاء الاصطناعي...</h3>
-  <p id="sub-msg" style="font-size: 0.8rem; color: #94a3b8;">يرجى الانتظار 10 ثوانٍ لتحميل المكتبات</p>
-  <button class="btn" onclick="manualCalibrate()">🎯 اضغطي هنا للمعايرة</button>
-</div>
+<aside id="side-panel">
+  <h2 style="color:var(--accent); text-align:center; margin-bottom:20px;">AYA ANALYTICS</h2>
+  
+  <div class="stat-card">
+    <div class="stat-label">عداد الرمش</div>
+    <div id="blink-val" class="stat-value">0</div>
+  </div>
 
-<div id="video-wrapper">
-  <video id="webcam" playsinline style="opacity: 0.3;"></video>
+  <div class="stat-card">
+    <div class="stat-label">الحالة العضلية</div>
+    <div id="muscle-val" style="font-weight:bold; color:var(--accent);">بانتظار الرصد</div>
+    <div id="muscle-desc" style="font-size:0.75rem; margin-top:5px; opacity:0.6;">قم بالمعايرة لتفعيل التحليل</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-label">مؤشر التركيز</div>
+    <div id="focus-val" class="stat-value">100%</div>
+  </div>
+
+  <button onclick="startCalibration()">🎯 ابدأ المعايرة الآن</button>
+  <button style="background:#334155" onclick="location.reload()">🔄 إعادة تشغيل</button>
+</aside>
+
+<main id="display">
+  <div id="status-msg"><b id="msg-text">جاري تحميل الميزات...</b></div>
+  <video id="webcam" playsinline style="opacity:0.2;"></video>
   <canvas id="visualizer"></canvas>
-</div>
 
-<div id="alarm-screen">
-  <h1 style="font-size: 3rem;">⚠️ آية! استيقظي!</h1>
-  <button class="btn" style="background: white; color: red;" onclick="resetAlarm()">أنا مستيقظة</button>
-</div>
+  <div id="alarm">
+    <h1 style="font-size:4rem; margin:0;">⚠️ آية!</h1>
+    <p style="font-size:1.5rem;">لقد نمتِ لأكثر من 5 ثوانٍ!</p>
+    <button style="background:white; color:red; padding:15px 40px; font-size:1.2rem;" onclick="stopAlarm()">لقد استيقظت</button>
+  </div>
+</main>
 
 <script type="module">
-  const video = document.getElementById('webcam');
-  const canvas = document.getElementById('visualizer');
-  const ctx = canvas.getContext('2d');
-  const mainMsg = document.getElementById('main-msg');
-  const subMsg = document.getElementById('sub-msg');
+  const video = document.getElementById('webcam'), canvas = document.getElementById('visualizer'), ctx = canvas.getContext('2d');
+  
+  // المتغيرات الأساسية
+  let bEAR = 0.22, bBrow = 0.15, lastLM = null, sleepT = null, blinks = 0, lastE = true, focus = 100;
 
-  let bEAR = 0.22, lastLM = null, sleepT = null, lastE = true;
-
-  // دالة قياس العين
   const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
+  
+  // دالة قياس فتحة العين
   function getEAR(lm) {
     const v = dist(lm[160], lm[144]) + dist(lm[385], lm[380]);
     const h = dist(lm[33], lm[133]) + dist(lm[362], lm[263]);
     return v / h;
   }
 
-  // معايرة يدوية
-  window.manualCalibrate = () => {
-    if(!lastLM) return alert("النظام لم يرصد وجهك بعد. تأكدي من ظهور الخطوط على وجهك.");
-    bEAR = getEAR(lastLM);
-    mainMsg.innerText = "تمت المعايرة بنجاح ✅";
-    subMsg.innerText = "النظام يراقبكِ الآن بدقة.";
+  // المعايرة: هي التي تفعل الميزات
+  window.startCalibration = () => {
+    if(!lastLM) return alert("لم يتم رصد الوجه بعد، تأكدي من الإضاءة");
+    let samples = [];
+    document.getElementById('msg-text').innerText = "جاري الحفظ... حافظي على ثباتك ⏳";
+    
+    const calibInterval = setInterval(() => {
+      if(lastLM) samples.push({ ear: getEAR(lastLM), brow: dist(lastLM[52], lastLM[282]) });
+      if(samples.length >= 50) {
+        bEAR = samples.reduce((a,b) => a + b.ear, 0) / 50;
+        bBrow = samples.reduce((a,b) => a + b.brow, 0) / 50;
+        clearInterval(calibInterval);
+        document.getElementById('msg-text').innerText = "تم تفعيل كافة الميزات بنجاح ✅";
+      }
+    }, 40);
   };
 
-  function onResults(results) {
-    if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-      mainMsg.innerText = "❌ وجهكِ غير واضح";
+  function onResults(res) {
+    if (!res.multiFaceLandmarks || res.multiFaceLandmarks.length === 0) {
+      document.getElementById('msg-text').innerText = "❌ الوجه غير مرئي";
       return;
     }
 
-    mainMsg.innerText = "✅ وجهكِ مرصود (جاهز)";
-    lastLM = results.multiFaceLandmarks[0];
+    lastLM = res.multiFaceLandmarks[0];
     const ear = getEAR(lastLM);
+    if(document.getElementById('msg-text').innerText.includes("تحميل")) {
+        document.getElementById('msg-text').innerText = "✅ وجهكِ مرصود.. اضغطي 'معايرة'";
+    }
 
-    // كشف النوم 5 ثوانٍ
-    if (ear < bEAR * 0.65) {
+    // 1. عداد الرمش
+    if (ear < bEAR * 0.65 && lastE) { lastE = false; }
+    else if (ear > bEAR * 0.75 && !lastE) { blinks++; document.getElementById('blink-val').innerText = blinks; lastE = true; }
+
+    // 2. منبه الـ 5 ثواني
+    if (ear < bEAR * 0.6) {
       if (!sleepT) sleepT = Date.now();
-      if (Date.now() - sleepT > 5000) document.getElementById('alarm-screen').style.display = 'flex';
-    } else { sleepT = null; }
+      if (Date.now() - sleepT > 5000) document.getElementById('alarm').style.display = 'flex';
+    } else { sleepT = null; document.getElementById('alarm').style.display = 'none'; }
 
-    // رسم الشبكة للتأكد من العمل
+    // 3. تحليل العضلات والتركيز
+    const currentBrow = dist(lastLM[52], lastLM[282]);
+    const mLabel = document.getElementById('muscle-val');
+    const mDesc = document.getElementById('muscle-desc');
+
+    if (currentBrow < bBrow * 0.9) {
+      mLabel.innerText = "تركيز مرتفع"; mLabel.style.color = "#10b981";
+      mDesc.innerText = "انقباض العضلات المقطبة (حالة دراسة)";
+    } else if (dist(lastLM[13], lastLM[14]) > 0.05) {
+      mLabel.innerText = "إرهاق / تثاؤب"; mLabel.style.color = "#ef4444";
+      mDesc.innerText = "ارتخاء عضلات الفك السفلي";
+    } else {
+      mLabel.innerText = "وضعية طبيعية"; mLabel.style.color = "var(--accent)";
+      mDesc.innerText = "عضلات الوجه في حالة استرخاء";
+    }
+
+    // الرسم
     ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-    if(lastLM) {
-        drawConnectors(ctx, lastLM, FACEMESH_TESSELATION, {color: '#6366f150', lineWidth: 1});
-    }
+    ctx.drawImage(res.image, 0, 0, canvas.width, canvas.height);
+    drawConnectors(ctx, lastLM, FACEMESH_TESSELATION, {color: '#6366f140', lineWidth: 1});
     ctx.restore();
   }
 
-  window.resetAlarm = () => { sleepT = null; document.getElementById('alarm-screen').style.display = 'none'; };
+  window.stopAlarm = () => { sleepT = null; document.getElementById('alarm').style.display = 'none'; };
 
-  // إعداد المحرك
-  const faceMesh = new FaceMesh({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-  });
-
-  faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+  const faceMesh = new FaceMesh({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
+  faceMesh.setOptions({maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5});
   faceMesh.onResults(onResults);
 
-  // تشغيل الكاميرا بطريقة الهاتف
-  const camera = new Camera(video, {
-    onFrame: async () => { await faceMesh.send({image: video}); },
-    width: 640, height: 480
-  });
-
-  camera.start().then(() => {
-    subMsg.innerText = "الكاميرا تعمل.. بانتظار تحميل نموذج الوجه...";
-  }).catch(err => {
-    mainMsg.innerText = "⚠️ خطأ في الكاميرا";
-    subMsg.innerText = "تأكدي من إعطاء الإذن للمتصفح.";
-  });
+  const cam = new Camera(video, {onFrame: async () => { await faceMesh.send({image: video}); }, width: 640, height: 480});
+  cam.start();
 </script>
 </body>
 </html>
