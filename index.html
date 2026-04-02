@@ -316,14 +316,54 @@
   }
 
   window.deactivateAlarm = () => { sleepTimer = null; document.getElementById('emergency-overlay').style.display='none'; };
+// --- نظام تشغيل الكاميرا الآمن (Safe Camera Boot) ---
+  const faceMesh = new FaceMesh({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+  });
 
-  const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-  faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7});
+  faceMesh.setOptions({
+    maxNumFaces: 1,
+    refineLandmarks: true,
+    minDetectionConfidence: 0.7,
+    minTrackingConfidence: 0.7
+  });
+
   faceMesh.onResults(processBehavior);
 
-  const camera = new Camera(video, {onFrame: async () => { await faceMesh.send({image: video}); }, width: 1280, height: 720});
-  camera.start();
+  // دالة تشغيل الكاميرا مع معالجة الأخطاء
+  async function startCamera() {
+    try {
+      const camera = new Camera(video, {
+        onFrame: async () => {
+          await faceMesh.send({image: video});
+        },
+        width: 640,
+        height: 480
+      });
+      
+      console.log("جاري محاولة تشغيل الكاميرا...");
+      await camera.start();
+      console.log("الكاميرا تعمل بنجاح!");
+      subline.innerText = "الكاميرا متصلة.. يرجى المعايرة";
+      
+    } catch (err) {
+      console.error("خطأ في الكاميرا: ", err);
+      headline.innerText = "خطأ في الكاميرا ⚠️";
+      subline.innerText = "تأكدي من إعطاء إذن الكاميرا للمتصفح وأغلقي أي تطبيق آخر يستخدمها.";
+      alert("لم نتمكن من الوصول للكاميرا. يرجى الضغط على قفل الأمان بجانب رابط الموقع وتفعيل Camera.");
+    }
+  }
+
+  // بدء التشغيل
+  startCamera();
+
+  // دالة إغلاق المنبه
+  window.deactivateAlarm = () => { 
+    sleepTimer = null; 
+    document.getElementById('emergency-overlay').style.display='none'; 
+  };
 </script>
+ 
 </script>
   </body>
 </html>
