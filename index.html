@@ -2,152 +2,135 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>نظام آية المتكامل v19</title>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <title>نظام آية Ghesseier المتكامل v21</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <style>
-    :root { --accent: #6366f1; --bg: #020617; --card: #0f172a; --success: #10b981; --warning: #f59e0b; }
-    body { margin: 0; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; overflow: hidden; }
-    #side-panel { width: 320px; background: var(--card); padding: 20px; border-left: 2px solid #1e293b; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
-    #main-display { flex: 1; position: relative; background: #000; display: flex; justify-content: center; align-items: center; }
-    canvas { position: absolute; width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); z-index: 10; }
-    video { position: absolute; width: 1px; height: 1px; opacity: 0; }
-    .stat-card { background: #1e293b; padding: 12px; border-radius: 10px; border-right: 4px solid var(--accent); transition: 0.3s; }
-    .label { font-size: 0.75rem; color: #94a3b8; }
-    .value { font-size: 1.1rem; font-weight: bold; margin-top: 4px; }
-    .active { border-right-color: var(--success); background: rgba(16, 185, 129, 0.1); }
-    button { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-    #calib-btn { background: var(--success); margin-bottom: 10px; }
+    :root { --accent: #8b5cf6; --bg: #020617; --card: #0f172a; --text: #f8fafc; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+    #side-panel { width: 340px; background: var(--card); border-left: 1px solid #1e293b; padding: 25px; display: flex; flex-direction: column; gap: 15px; z-index: 100; overflow-y: auto; box-shadow: -5px 0 20px rgba(0,0,0,0.5); }
+    #viewport { flex: 1; position: relative; background: #000; display: flex; justify-content: center; align-items: center; }
+    canvas { width: 95%; height: 95%; border-radius: 20px; transform: scaleX(-1); object-fit: contain; box-shadow: 0 0 50px rgba(139, 92, 246, 0.2); }
+    video { display: none; }
+    .stat-card { background: #1e293b; padding: 15px; border-radius: 12px; border-right: 5px solid var(--accent); transition: 0.3s; }
+    .stat-card.active { border-right-color: #10b981; background: rgba(16, 185, 129, 0.1); }
+    .label { font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px; }
+    .value { font-size: 1.3rem; font-weight: bold; }
+    #overlay-msg { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; transition: 0.5s; }
+    .btn-start { padding: 15px 40px; background: var(--accent); color: white; border: none; border-radius: 30px; font-size: 1.2rem; cursor: pointer; font-weight: bold; }
+    .blink-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; background: #334155; margin-right: 10px; }
+    .blink-indicator.on { background: #10b981; box-shadow: 0 0 10px #10b981; }
   </style>
 </head>
 <body>
 
+<div id="overlay-msg">
+    <h1 style="color:var(--accent);">نظام AYA AI v21</h1>
+    <p>يرجى السماح بالوصول للكاميرا لتفعيل المحرك</p>
+    <button class="btn-start" onclick="initSystem()">تشغيل النظام الكامل</button>
+</div>
+
 <aside id="side-panel">
-  <h2 style="color:var(--accent); text-align:center; margin:0 0 15px 0;">AYA AI PRO</h2>
-  <button id="calib-btn" onclick="calibrate()">🎯 معايرة النظام الشخصي</button>
-
-  <div class="stat-card" id="card-blink">
-    <div class="label">عداد الرمش</div>
-    <div id="blink-val" class="value">0</div>
-  </div>
-
-  <div class="stat-card" id="card-brow">
-    <div class="label">الحواجب (تعجب/غضب)</div>
-    <div id="brow-val" class="value">--</div>
-  </div>
-
-  <div class="stat-card" id="card-mouth">
-    <div class="label">نشاط الفم (كلام/تثاؤب)</div>
-    <div id="mouth-val" class="value">صامت</div>
-  </div>
-
-  <div class="stat-card" id="card-hand">
-    <div class="label">حركة اليد</div>
-    <div id="hand-val" class="value">مستقرة</div>
-  </div>
-
-  <button onclick="location.reload()">إعادة تشغيل 🔄</button>
+  <h2 style="text-align:center; color:var(--accent); margin:0;">لوحة التحكم والتحليل</h2>
+  <div class="stat-card" id="c-blink"><div class="label">عداد الرمش</div><div class="value"><span id="blink-val">0</span> <div class="blink-indicator" id="blink-dot"></div></div></div>
+  <div class="stat-card" id="c-emotion"><div class="label">تعبير الوجه</div><div id="emotion-val" class="value">تحليل...</div></div>
+  <div class="stat-card" id="c-mouth"><div class="label">نشاط الفم</div><div id="mouth-val" class="value">صامت</div></div>
+  <div class="stat-card" id="c-hand"><div class="label">حالة اليد</div><div id="hand-val" class="value">مستقرة</div></div>
+  <div class="stat-card" id="c-focus"><div class="label">التركيز البصري</div><div id="focus-val" class="value">مركّز ✅</div></div>
+  <button onclick="location.reload()" style="background:#334155; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer;">إعادة مزامنة النظام 🔄</button>
 </aside>
 
-<main id="main-display">
-  <video id="input_video" playsinline></video>
+<main id="viewport">
+  <video id="input_video"></video>
   <canvas id="output_canvas"></canvas>
 </main>
 
 <script type="module">
-  const video = document.getElementById('input_video');
-  const canvas = document.getElementById('output_canvas');
-  const ctx = canvas.getContext('2d');
-  
-  let blinks = 0, isClosed = false, mouthHistory = [];
-  let baseEAR = 0.22, baseBrowDist = 0.05, baseMouthH = 0.02, isCalibrated = false;
-  let lastFaceLM = null, lastHandLM = null;
+  const video = document.getElementById('input_video'), canvas = document.getElementById('output_canvas'), ctx = canvas.getContext('2d');
+  let blinks = 0, isClosed = false, framesSinceCalib = 0;
+  let bEAR = 0.22, bBrow = 0.05, bMouth = 0.02, calibrated = false;
+  let faceRes = null, handRes = null;
 
   const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
 
+  // إعداد المحركات مع موازنة السرعة والدقة
   const faceMesh = new FaceMesh({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
   faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: 0.5 });
+  faceMesh.onResults(res => { faceRes = res.multiFaceLandmarks ? res.multiFaceLandmarks[0] : null; });
 
   const hands = new Hands({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
   hands.setOptions({ maxNumHands: 1, minDetectionConfidence: 0.5 });
+  hands.onResults(res => { handRes = res.multiHandLandmarks ? res.multiHandLandmarks[0] : null; });
 
-  faceMesh.onResults(res => { if(res.multiFaceLandmarks) lastFaceLM = res.multiFaceLandmarks[0]; });
-  hands.onResults(res => { if(res.multiHandLandmarks) lastHandLM = res.multiHandLandmarks[0]; });
-
-  window.calibrate = () => {
-    if (lastFaceLM) {
-        baseEAR = (dist(lastFaceLM[159], lastFaceLM[145]) + dist(lastFaceLM[386], lastFaceLM[374])) / (2 * dist(lastFaceLM[33], lastFaceLM[133]));
-        baseBrowDist = dist(lastFaceLM[105], lastFaceLM[159]);
-        baseMouthH = dist(lastFaceLM[13], lastFaceLM[14]);
-        isCalibrated = true;
-        alert("تم حفظ بصمة وجهكِ! النظام الآن يعرف تعابيركِ الطبيعية.");
-    }
+  window.initSystem = async () => {
+    document.getElementById('overlay-msg').style.opacity = '0';
+    setTimeout(() => document.getElementById('overlay-msg').style.display = 'none', 500);
+    
+    const camera = new Camera(video, {
+      onFrame: async () => {
+        await faceMesh.send({image: video});
+        if (faceRes) await hands.send({image: video});
+      },
+      width: 640, height: 480
+    });
+    camera.start();
+    requestAnimationFrame(render);
   };
 
   function render() {
     if (video.readyState === 4) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.save();
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      ctx.save(); ctx.clearRect(0,0,canvas.width,canvas.height);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      if (lastFaceLM) {
-        const lm = lastFaceLM;
-        drawConnectors(ctx, lm, FACEMESH_TESSELATION, {color: '#ffffff20', lineWidth: 1});
-
-        // 1. تحليل الرمش
-        const currentEAR = (dist(lm[159], lm[145]) + dist(lm[386], lm[374])) / (2 * dist(lm[33], lm[133]));
-        if (currentEAR < baseEAR * 0.78) isClosed = true;
-        else if (isClosed && currentEAR > baseEAR * 0.88) { blinks++; document.getElementById('blink-val').innerText = blinks; isClosed = false; }
-
-        if (isCalibrated) {
-            // 2. تحليل الحواجب (الاندهاش والتعجب)
-            const currentBrow = dist(lm[105], lm[159]);
-            const browVal = document.getElementById('brow-val');
-            if (currentBrow > baseBrowDist * 1.3) { browVal.innerText = "اندهاش / تعجب 😲"; document.getElementById('card-brow').classList.add('active'); }
-            else if (currentBrow < baseBrowDist * 0.85) { browVal.innerText = "تركيز شديد 😠"; document.getElementById('card-brow').classList.add('active'); }
-            else { browVal.innerText = "طبيعي"; document.getElementById('card-brow').classList.remove('active'); }
-
-            // 3. تحليل الفم والكلام
-            const currentMouth = dist(lm[13], lm[14]);
-            const mouthVal = document.getElementById('mouth-val');
-            if (currentMouth > baseMouthH + 0.05) {
-                mouthVal.innerText = "تثاؤب 🥱";
-            } else if (currentMouth > baseMouthH + 0.015) {
-                mouthVal.innerText = "يتحدث الآن 🗣️";
-                document.getElementById('card-mouth').classList.add('active');
-            } else {
-                mouthVal.innerText = "صامت";
-                document.getElementById('card-mouth').classList.remove('active');
-            }
+      if (faceRes) {
+        drawConnectors(ctx, faceRes, FACEMESH_TESSELATION, {color: '#ffffff15', lineWidth: 1});
+        
+        // معايرة تلقائية في أول 30 إطار
+        if (!calibrated && framesSinceCalib < 30) {
+            bEAR = (dist(faceRes[159], faceRes[145]) + dist(faceRes[386], faceRes[374])) / (2 * dist(faceRes[33], faceRes[133]));
+            bBrow = dist(faceRes[105], faceRes[159]);
+            bMouth = dist(faceRes[13], faceRes[14]);
+            framesSinceCalib++; if(framesSinceCalib === 30) calibrated = true;
         }
+
+        // 1. الرمش
+        const cEAR = (dist(faceRes[159], faceRes[145]) + dist(faceRes[386], faceRes[374])) / (2 * dist(faceRes[33], faceRes[133]));
+        if (cEAR < bEAR * 0.8) { isClosed = true; document.getElementById('blink-dot').className = "blink-indicator on"; }
+        else if (isClosed && cEAR > bEAR * 0.9) { blinks++; isClosed = false; document.getElementById('blink-val').innerText = blinks; document.getElementById('blink-dot').className = "blink-indicator"; }
+
+        // 2. التعبير (حواجب)
+        const cBrow = dist(faceRes[105], faceRes[159]);
+        const eVal = document.getElementById('emotion-val');
+        if (cBrow > bBrow * 1.25) { eVal.innerText = "تعجب / اندهاش 😲"; document.getElementById('c-emotion').classList.add('active'); }
+        else if (cBrow < bBrow * 0.8) { eVal.innerText = "تركيز شديد 😠"; document.getElementById('c-emotion').classList.add('active'); }
+        else { eVal.innerText = "طبيعي"; document.getElementById('c-emotion').classList.remove('active'); }
+
+        // 3. الفم والكلام
+        const cMouth = dist(faceRes[13], faceRes[14]);
+        const mVal = document.getElementById('mouth-val');
+        if (cMouth > bMouth + 0.05) mVal.innerText = "تثاؤب 🥱";
+        else if (cMouth > bMouth + 0.015) { mVal.innerText = "يتحدث الآن 🗣️"; document.getElementById('c-mouth').classList.add('active'); }
+        else { mVal.innerText = "صامت"; document.getElementById('c-mouth').classList.remove('active'); }
+
+        // 4. النظر
+        document.getElementById('focus-val').innerText = (faceRes[468].y > 0.65) ? "يكتب/يقرأ 📝" : "مركّز معك ✅";
       }
 
-      if (lastHandLM) {
-        drawConnectors(ctx, lastHandLM, HAND_CONNECTIONS, {color: '#00ff00', lineWidth: 2});
-        document.getElementById('hand-val').innerText = "يد نشطة ✋";
-        document.getElementById('card-hand').classList.add('active');
+      if (handRes) {
+        drawConnectors(ctx, handRes, HAND_CONNECTIONS, {color: '#8b5cf6', lineWidth: 2});
+        const handToFace = dist(handRes[9], faceRes[152]);
+        document.getElementById('hand-val').innerText = handToFace < 0.1 ? "وضعية تفكير 🤔" : "يد نشطة ✋";
+        document.getElementById('c-hand').classList.add('active');
       } else {
-        document.getElementById('hand-val').innerText = "مستقرة";
-        document.getElementById('card-hand').classList.remove('active');
+        document.getElementById('hand-val').innerText = "مستقرة"; document.getElementById('c-hand').classList.remove('active');
       }
       ctx.restore();
     }
     requestAnimationFrame(render);
   }
-
-  async function startAI() {
-    if (video.readyState === 4) {
-      await faceMesh.send({image: video});
-      await hands.send({image: video});
-    }
-    setTimeout(startAI, 45); // توازن بين السرعة والدقة
-  }
-
-  const camera = new Camera(video, { onFrame: async () => {}, width: 640, height: 480 });
-  camera.start().then(() => { render(); startAI(); });
 </script>
 </body>
 </html>
