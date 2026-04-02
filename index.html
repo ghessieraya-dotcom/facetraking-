@@ -2,38 +2,33 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>نظام آية Ghesseier v24 - التتبع الحي</title>
+  <title>نظام آية v25 - التحديث الإجباري</title>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <style>
     :root { --accent: #8b5cf6; --bg: #020617; --card: #0f172a; }
     body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
-    #side-panel { width: 300px; background: var(--card); padding: 20px; border-left: 1px solid #1e293b; display: flex; flex-direction: column; gap: 15px; z-index: 100; }
+    #side-panel { width: 280px; background: var(--card); padding: 20px; border-left: 2px solid #1e293b; z-index: 100; }
     #viewport { flex: 1; position: relative; background: #000; display: flex; justify-content: center; align-items: center; }
-    canvas { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); z-index: 10; }
-    video { display: none; }
-    .stat-card { background: #1e293b; padding: 12px; border-radius: 10px; border-right: 4px solid var(--accent); }
-    .label { font-size: 0.8rem; color: #94a3b8; }
-    .value { font-size: 1.2rem; font-weight: bold; margin-top: 5px; color: #f8fafc; }
-    #start-screen { position: fixed; inset: 0; z-index: 1000; background: var(--bg); display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; }
-    button.main { padding: 15px 40px; background: var(--accent); color: white; border: none; border-radius: 30px; font-size: 1.2rem; cursor: pointer; font-weight: bold; }
+    canvas { position: absolute; width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); z-index: 10; }
+    video { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    .stat-card { background: #1e293b; padding: 12px; border-radius: 10px; border-right: 4px solid var(--accent); margin-bottom: 10px; }
+    .value { font-size: 1.1rem; font-weight: bold; color: #f8fafc; }
+    #start-btn { position: fixed; inset: 0; z-index: 2000; background: var(--bg); display: flex; justify-content: center; align-items: center; }
+    button.main { padding: 20px 60px; background: var(--accent); color: white; border: none; border-radius: 50px; font-size: 1.5rem; cursor: pointer; box-shadow: 0 0 20px var(--accent); }
   </style>
 </head>
 <body>
 
-<div id="start-screen">
-    <h1 style="color:var(--accent);">Aya System Pro v24</h1>
-    <button class="main" onclick="startSystem()">تشغيل التتبع الحي</button>
-</div>
+<div id="start-btn"><button class="main" onclick="startEngine()">تشغيل المحرك v25 🚀</button></div>
 
 <aside id="side-panel">
-  <h2 style="color:var(--accent); text-align:center;">التتبع الديناميكي</h2>
-  <div class="stat-card"><div class="label">الرمش الحي</div><div id="blink-val" class="value">0</div></div>
-  <div class="stat-card"><div class="label">حركة الوجه</div><div id="emotion-val" class="value">تحليل مستمر...</div></div>
-  <div class="stat-card"><div class="label">فتحة الفم</div><div id="mouth-val" class="value">--</div></div>
-  <div class="stat-card"><div class="label">رصد اليد</div><div id="hand-val" class="value">بحث...</div></div>
-  <button onclick="location.reload()" style="background:#334155; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">إعادة تصفير النظام 🔄</button>
+  <h2 style="color:var(--accent); text-align:center;">AYA SYSTEM</h2>
+  <div class="stat-card"><div>الرمش</div><div id="blink-val" class="value">0</div></div>
+  <div class="stat-card"><div>الحالة</div><div id="status-val" class="value">بحث عن وجه...</div></div>
+  <div class="stat-card"><div>اليد</div><div id="hand-val" class="value">--</div></div>
+  <button onclick="location.reload()" style="width:100%; background:#475569; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">تحديث الصفحة 🔄</button>
 </aside>
 
 <main id="viewport">
@@ -43,89 +38,79 @@
 
 <script type="module">
   const video = document.getElementById('input_video'), canvas = document.getElementById('output_canvas'), ctx = canvas.getContext('2d');
-  let blinks = 0, isClosed = false;
-  let faceData = null, handData = null;
-  let bEAR = 0.22, bBrow = 0.05, bMouth = 0.02, calibrated = false, calibFrames = 0;
+  let currentFace = null, currentHand = null, blinks = 0, isClosed = false;
+  let bEAR = 0.22, calibrated = false, frames = 0;
 
-  const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
-
-  // إعداد المحركات مع تفعيل التتبع المستمر (Real-time Tracking)
+  // إعدادات المحرك مع إجبار التتبع (Tracking Priority)
   const faceMesh = new FaceMesh({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
-  faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-  
-  // تحديث البيانات فور وصولها من المحرك
-  faceMesh.onResults(res => { faceData = (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) ? res.multiFaceLandmarks[0] : null; });
+  faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.7 });
 
   const hands = new Hands({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
-  hands.setOptions({ maxNumHands: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-  hands.onResults(res => { handData = (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) ? res.multiHandLandmarks[0] : null; });
+  hands.setOptions({ maxNumHands: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.7 });
 
-  window.startSystem = async () => {
-    document.getElementById('start-screen').style.display = 'none';
+  // هنا السر: نقوم بمسح البيانات القديمة فوراً واستبدالها بالجديدة
+  faceMesh.onResults(res => { 
+    currentFace = (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) ? res.multiFaceLandmarks[0] : null; 
+  });
+  
+  hands.onResults(res => { 
+    currentHand = (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) ? res.multiHandLandmarks[0] : null; 
+  });
+
+  window.startEngine = async () => {
+    document.getElementById('start-btn').style.display = 'none';
     const stream = await navigator.mediaDevices.getUserMedia({video: {width: 640, height: 480}});
     video.srcObject = stream;
     video.play();
     
-    // تشغيل حلقة الرسم وحلقة المعالجة بشكل متوازي
-    renderLoop();
-    processLoop();
+    // تشغيل المحركات في حلقة لا نهائية
+    async function sense() {
+        if (video.readyState === 4) {
+            await faceMesh.send({image: video});
+            await hands.send({image: video});
+        }
+        requestAnimationFrame(sense);
+    }
+    
+    function draw() {
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        ctx.save();
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // مسح إجباري لكل بكسل
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        if (currentFace) {
+            // رسم الشبكة الحية (ستتحرك الآن لأن currentFace يتجدد في كل إطار)
+            drawConnectors(ctx, currentFace, FACEMESH_TESSELATION, {color: '#ffffff30', lineWidth: 1});
+            
+            const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
+            const cEAR = (dist(currentFace[159], currentFace[145]) + dist(currentFace[386], currentFace[374])) / (2 * dist(currentFace[33], currentFace[133]));
+
+            if (!calibrated) {
+                if (frames < 30) { bEAR = cEAR; frames++; } 
+                else { calibrated = true; }
+            } else {
+                if (cEAR < bEAR * 0.8) isClosed = true;
+                else if (isClosed && cEAR > bEAR * 0.9) { blinks++; isClosed = false; document.getElementById('blink-val').innerText = blinks; }
+                document.getElementById('status-val').innerText = "وجه مرصود ✅";
+            }
+        } else {
+            document.getElementById('status-val').innerText = "ابحث عن وجه...";
+        }
+
+        if (currentHand) {
+            drawConnectors(ctx, currentHand, HAND_CONNECTIONS, {color: '#8b5cf6', lineWidth: 2});
+            document.getElementById('hand-val').innerText = "يد نشطة ✋";
+        } else {
+            document.getElementById('hand-val').innerText = "--";
+        }
+
+        ctx.restore();
+        requestAnimationFrame(draw);
+    }
+
+    sense();
+    draw();
   };
-
-  async function processLoop() {
-    if (video.readyState === 4) {
-        // إرسال الإطارات للمحركات بشكل مستقل لضمان التحديث
-        await faceMesh.send({image: video});
-        await hands.send({image: video});
-    }
-    // طلب الإطار التالي فوراً لضمان عدم توقف التتبع
-    requestAnimationFrame(processLoop);
-  }
-
-  function renderLoop() {
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // معالجة الوجه الحية
-    if (faceData) {
-        const lm = faceData;
-        drawConnectors(ctx, lm, FACEMESH_TESSELATION, {color: '#ffffff25', lineWidth: 0.5});
-
-        // المعايرة التلقائية النشطة
-        if (!calibrated && calibFrames < 30) {
-            bEAR = (dist(lm[159], lm[145]) + dist(lm[386], lm[374])) / (2 * dist(lm[33], lm[133]));
-            bBrow = dist(lm[105], lm[159]);
-            bMouth = dist(lm[13], lm[14]);
-            calibFrames++; if(calibFrames === 30) calibrated = true;
-        }
-
-        if (calibrated) {
-            // تحديث القيم في كل إطار (التتبع الفعلي)
-            const cEAR = (dist(lm[159], lm[145]) + dist(lm[386], lm[374])) / (2 * dist(lm[33], lm[133]));
-            if (cEAR < bEAR * 0.8) isClosed = true;
-            else if (isClosed && cEAR > bEAR * 0.9) { blinks++; isClosed = false; document.getElementById('blink-val').innerText = blinks; }
-
-            const cBrow = dist(lm[105], lm[159]);
-            document.getElementById('emotion-val').innerText = (cBrow > bBrow * 1.2) ? "مندهش 😲" : (cBrow < bBrow * 0.85 ? "مركز 😠" : "طبيعي");
-
-            const cMouth = dist(lm[13], lm[14]);
-            document.getElementById('mouth-val').innerText = (cMouth > bMouth + 0.02) ? "يتحدث 🗣️" : "صامت";
-        }
-    }
-
-    // معالجة اليد الحية
-    if (handData) {
-        drawConnectors(ctx, handData, HAND_CONNECTIONS, {color: '#8b5cf6', lineWidth: 2});
-        document.getElementById('hand-val').innerText = "تم الرصد ✅";
-    } else {
-        document.getElementById('hand-val').innerText = "بحث عن يد...";
-    }
-
-    ctx.restore();
-    requestAnimationFrame(renderLoop);
-  }
 </script>
 </body>
 </html>
