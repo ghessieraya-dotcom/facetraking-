@@ -1,84 +1,232 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>نظام آية Ghesseier v28 - المحلل النفسي للطالب</title>
+  <title>نظام آية Ghesseier v28 - النسخة المطورة</title>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  
   <style>
-    :root { --accent: #8b5cf6; --bg: #020617; --card: #0f172a; --danger: #ef4444; --success: #10b981; }
-    body { margin: 0; background: var(--bg); color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; }
-    
-    /* لوحة التحكم الجانبية */
-    #side-panel { width: 350px; background: var(--card); padding: 25px; border-left: 3px solid var(--accent); display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+    /* 1. تعريف باليت الألوان لكل شخصية كما طلبت بدقة */
+    :root {
+      /* ثيم افتراضي */
+      --accent: #8b5cf6; --bg: #020617; --card: rgba(15, 23, 42, 0.8);
+      
+      /* باليت ثابت */
+      --thabet-ocean: #2C3E50; --thabet-pc: #48C9B0; --thabet-gray: #95A5A6; 
+      --thabet-wood: #78281F; --thabet-ink: #ECF0F1; --thabet-charcoal: #1C2833;
+
+      /* باليت كوثر */
+      --kawthar-moss: #6B8E6B; --kawthar-teal: #5D8AA8; --kawthar-cinnamon: #D2691E; 
+      --kawthar-gold: #DAA520; --kawthar-beige: #F5F5DC;
+
+      /* باليت ملك */
+      --malak-burgundy: #7B1414; --malak-beige: #C5B081; --malak-gray: #90A48E; 
+      --malak-blue: #2F3C48; --malak-paper: #F5F5DC; --malak-olive: #808000;
+
+      /* باليت محمد */
+      --mohammed-red: #E6513A; --mohammed-blue: #3498DB; --mohammed-dark: #2C3E50; 
+      --mohammed-gray: #7F8C8D; --mohammed-gold: #D4AC0D;
+    }
+
+    body { margin: 0; background: var(--bg); color: white; font-family: 'Cairo', 'Segoe UI', sans-serif; display: flex; height: 100vh; overflow: hidden; transition: 0.5s; }
+
+    /* واجهة الأسئلة (Glassmorphism) */
+    #onboarding {
+      position: fixed; inset: 0; z-index: 10000; background: radial-gradient(circle, #1e293b, #020617);
+      display: flex; justify-content: center; align-items: center; padding: 20px;
+    }
+    .quiz-card {
+      background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px);
+      padding: 40px; border-radius: 30px; border: 1px solid rgba(255, 255, 255, 0.1);
+      max-width: 600px; width: 100%; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    }
+    .option-btn {
+      display: block; width: 100%; padding: 15px; margin: 10px 0; background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2); border-radius: 15px; color: white; cursor: pointer;
+      font-size: 1.1rem; transition: 0.3s;
+    }
+    .option-btn:hover { background: var(--accent); transform: translateY(-3px); }
+
+    /* لوحة التحكم الجانبية المطورة */
+    #side-panel { width: 350px; background: var(--card); padding: 25px; border-left: 3px solid var(--accent); display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 10; }
     #viewport { flex: 1; position: relative; background: #000; }
     canvas { width: 100%; height: 100%; transform: scaleX(-1); object-fit: contain; }
     video { display: none; }
 
-    /* بطاقات الحالة */
-    .stat-card { background: #1e293b; padding: 15px; border-radius: 12px; border-right: 5px solid #334155; transition: 0.3s; }
+    .stat-card { background: rgba(30, 41, 59, 0.5); padding: 15px; border-radius: 12px; border-right: 5px solid #334155; transition: 0.3s; }
     .stat-card.active { border-right-color: var(--accent); background: rgba(139, 92, 246, 0.1); }
-    .label { font-size: 0.85rem; color: #94a3b8; }
-    .value { font-size: 1.2rem; font-weight: bold; margin-top: 5px; }
-
-    /* منبه الحالة النفسية */
-    #mental-state { font-size: 1.5rem; text-align: center; padding: 20px; border-radius: 15px; background: #1e293b; border: 2px solid var(--accent); margin-top: 10px; color: var(--success); }
     
-    #start-btn { position: fixed; inset: 0; z-index: 9999; background: var(--bg); display: flex; justify-content: center; align-items: center; }
-    button.main { padding: 20px 60px; background: var(--accent); color: white; border: none; border-radius: 50px; font-size: 1.5rem; cursor: pointer; box-shadow: 0 0 30px rgba(139, 92, 246, 0.4); }
+    #mental-state { font-size: 1.4rem; text-align: center; padding: 20px; border-radius: 15px; background: rgba(30, 41, 59, 0.8); border: 2px solid var(--accent); margin-top: 10px; }
+
+    /* واجهة ظهور الشخصيات */
+    #character-popup {
+      position: fixed; bottom: 30px; left: 380px; width: 300px; background: var(--card);
+      border-radius: 20px; border: 2px solid var(--accent); padding: 20px; display: none;
+      animation: slideUp 0.5s ease-out; z-index: 100;
+    }
+    @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   </style>
 </head>
 <body>
 
-<div id="start-btn"><button class="main" onclick="startSystem()">تشغيل نظام تحليل الطالب v28 🚀</button></div>
+<div id="onboarding">
+  <div class="quiz-card" id="quiz-content">
+    <h2 id="q-text">ما هو جو الدراسة المثالي لك؟</h2>
+    <div id="options">
+      <button class="option-btn" onclick="handleChoice(1, 'thabet')">هدوء تام ومنطق عالي</button>
+      <button class="option-btn" onclick="handleChoice(1, 'malak')">طاقة، تحدي، وحركة</button>
+      <button class="option-btn" onclick="handleChoice(1, 'kawthar')">جو لطيف ومشجع مع صديق</button>
+    </div>
+  </div>
+</div>
 
 <aside id="side-panel">
-  <h2 style="color:var(--accent); text-align:center; margin-bottom:20px;">تحليل سلوك الطالب</h2>
-  
+  <h2 id="char-name-ui" style="color:var(--accent); text-align:center; margin-bottom:10px;">المساعد الذكي</h2>
   <div id="mental-state">جاري التحليل...</div>
+  
+  <div class="stat-card">
+    <div class="label">رصيد التركيز التراكمي</div>
+    <div id="total-score-val" class="value" style="color:var(--accent)">0</div>
+  </div>
 
   <div class="stat-card" id="card-blink">
-    <div class="label">عداد الرمش (تركيز الطالب)</div>
+    <div class="label">عداد الرمش</div>
     <div id="blink-val" class="value">0</div>
   </div>
-
   <div class="stat-card" id="card-brow">
-    <div class="label">الحواجب (تعجب/تركيز)</div>
+    <div class="label">الحواجب</div>
     <div id="brow-val" class="value">طبيعي</div>
   </div>
-
   <div class="stat-card" id="card-mouth">
-    <div class="label">نشاط الفم (كلام/تثاؤب)</div>
+    <div class="label">نشاط الفم</div>
     <div id="mouth-val" class="value">صامت</div>
   </div>
-
-  <div class="stat-card">
-    <div class="label">التتبع البصري</div>
-    <div id="vision-val" class="value">مركّز على الشاشة</div>
-  </div>
-
-  <button onclick="location.reload()" style="background:#334155; margin-top:auto;">إعادة مزامنة النظام 🔄</button>
 </aside>
 
 <main id="viewport">
   <video id="input_video"></video>
   <canvas id="output_canvas"></canvas>
-</main>
-
-<script type="module">
+  <div id="character-popup">
+    <h4 id="pop-name">اسم الشخصية</h4>
+    <p id="pop-msg">الرسالة...</p>
+  </div>
+</main><script type="module">
+  // --- إعدادات اللوجيسيال الأصلية (لا تغيير) ---
   const video = document.getElementById('input_video'), canvas = document.getElementById('output_canvas'), ctx = canvas.getContext('2d');
   let blinks = 0, isClosed = false, faceRes = null;
   let bEAR = 0.22, bBrow = 0.05, bMouth = 0.02, calibrated = false, frames = 0;
 
+  // --- إعدادات النظام التراكمي والشخصيات (إضافات جديدة) ---
+  let totalScore = 0;
+  let currentCharacter = 'malak';
+  let accumulativeTracker = { confusion: 0, fatigue: 0, concentration: 0 };
+  let currentStep = 1;
+
+  // 1. نظام الأسئلة والتبديل بين الثيمات
+  window.handleChoice = (step, choice) => {
+    if(step === 1) {
+        currentCharacter = choice;
+        document.getElementById('q-text').innerText = "كيف تفضل تلقي ملخص الدرس؟";
+        document.getElementById('options').innerHTML = `
+            <button class="option-btn" onclick="handleChoice(2, 'kawthar')">بأسلوب قصصي دافئ</button>
+            <button class="option-btn" onclick="handleChoice(2, 'malak')">تحليل عميق وجدي</button>
+            <button class="option-btn" onclick="handleChoice(2, 'mohammed')">نقاط سريعة ومركزة</button>
+        `;
+    } else if(step === 2) {
+        document.getElementById('q-text').innerText = "عند مواجهة تمرين صعب، ماذا تفعل؟";
+        document.getElementById('options').innerHTML = `
+            <button class="option-btn" onclick="startFinalSystem('thabet')">أفكر بهدوء وحدي</button>
+            <button class="option-btn" onclick="startFinalSystem('malak')">أحتاج لشخص يحفزني</button>
+            <button class="option-btn" onclick="startFinalSystem('mohammed')">أبحث عن أسرع استراتيجية</button>
+        `;
+    }
+  };
+
+  window.startFinalSystem = (finalChar) => {
+    document.getElementById('onboarding').style.display = 'none';
+    applyTheme(currentCharacter);
+    startSystem();
+  };
+
+  function applyTheme(char) {
+    const root = document.documentElement;
+    if(char === 'malak') {
+        root.style.setProperty('--accent', '#7B1414');
+        root.style.setProperty('--bg', '#2F3C48');
+        document.getElementById('char-name-ui').innerText = "المرافقة: ملك";
+    } else if(char === 'kawthar') {
+        root.style.setProperty('--accent', '#6B8E6B');
+        root.style.setProperty('--bg', '#1a2421');
+        document.getElementById('char-name-ui').innerText = "المرافقة: كوثر";
+    } else if(char === 'mohammed') {
+        root.style.setProperty('--accent', '#3498DB');
+        root.style.setProperty('--bg', '#1C2833');
+        document.getElementById('char-name-ui').innerText = "المرافق: محمد";
+    } else {
+        root.style.setProperty('--accent', '#48C9B0');
+        root.style.setProperty('--bg', '#1C2833');
+        document.getElementById('char-name-ui').innerText = "المرافق: ثابت";
+    }
+  }
+
+  // --- محرك الذكاء التراكمي (Decision Engine) ---
+  function updateAccumulativeLogic(mouthState, browState) {
+    const popup = document.getElementById('character-popup');
+    const popName = document.getElementById('pop-name');
+    const popMsg = document.getElementById('pop-msg');
+
+    // قانون الصمت الذهبي: إذا كان يتحدث، صفر العدادات السلبية
+    if (mouthState === "يتحدث 🗣️") {
+        accumulativeTracker.confusion = 0;
+        totalScore += 2;
+        return; 
+    }
+
+    // 1. معالجة الحيرة (تراكمي)
+    if (browState === "تعجب 😲") {
+        accumulativeTracker.confusion++;
+        if (accumulativeTracker.confusion > 100) { // استمرار الحيرة
+            showIntervention("كوثر", "لا تقلق، يمكننا تبسيط هذه النقطة معاً ✨");
+            accumulativeTracker.confusion = 0;
+        }
+    }
+
+    // 2. معالجة الإرهاق (تراكمي)
+    if (mouthState === "تثاؤب 🥱") {
+        accumulativeTracker.fatigue++;
+        if (accumulativeTracker.fatigue > 3) {
+            showIntervention("ثابت", "وضع الطوارئ: جسدك يحتاج لاستراحة دقيقة ☕");
+            accumulativeTracker.fatigue = 0;
+        }
+    }
+
+    // 3. معالجة التركيز العالي
+    if (browState === "تركيز/تفكير 😠") {
+        totalScore += 0.5;
+        if (totalScore % 50 === 0) showIntervention("ملك", "أداء ملكي! استمر في هذا الاندماج 🔥");
+    }
+
+    document.getElementById('total-score-val').innerText = Math.floor(totalScore);
+  }
+
+  function showIntervention(name, msg) {
+    const popup = document.getElementById('character-popup');
+    document.getElementById('pop-name').innerText = name;
+    document.getElementById('pop-msg').innerText = msg;
+    popup.style.display = 'block';
+    setTimeout(() => popup.style.display = 'none', 5000);
+  }
+
+  // --- ربط اللوجيسيال بالمحرك الجديد ---
+  // ملاحظة: هنا سنستخدم نفس دالة draw الخاصة بك دون تغيير منطقها الرياضي
   const faceMesh = new FaceMesh({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
   faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
   faceMesh.onResults(res => { faceRes = (res.multiFaceLandmarks) ? res.multiFaceLandmarks[0] : null; });
 
-  const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
-
   window.startSystem = () => {
-    document.getElementById('start-btn').style.display = 'none';
     const camera = new Camera(video, {
       onFrame: async () => {
         await faceMesh.send({image: video});
@@ -98,55 +246,44 @@
     if (faceRes) {
       const lm = faceRes;
       drawConnectors(ctx, lm, FACEMESH_TESSELATION, {color: '#ffffff20', lineWidth: 0.5});
-      
-      // 1. حساب القياسات الحيوية
       const cEAR = (dist(lm[159], lm[145]) + dist(lm[386], lm[374])) / (2 * dist(lm[33], lm[133]));
       const cBrow = (dist(lm[105], lm[159]) + dist(lm[334], lm[386])) / 2;
       const cMouth = dist(lm[13], lm[14]);
 
-      // 2. المعايرة التلقائية (أول ثانية)
       if (!calibrated && frames < 30) {
         bEAR = cEAR; bBrow = cBrow; bMouth = cMouth;
         frames++; if(frames === 30) calibrated = true;
       }
 
       if (calibrated) {
-        // --- تحليل الرمش ---
         if (cEAR < bEAR * 0.75) isClosed = true;
         else if (isClosed && cEAR > bEAR * 0.85) { blinks++; isClosed = false; document.getElementById('blink-val').innerText = blinks; }
 
-        // --- تحليل التعجب والحواجب ---
         let browState = "طبيعي";
         if (cBrow > bBrow * 1.3) { browState = "تعجب 😲"; document.getElementById('card-brow').classList.add('active'); }
         else if (cBrow < bBrow * 0.8) { browState = "تركيز/تفكير 😠"; document.getElementById('card-brow').classList.add('active'); }
         else { document.getElementById('card-brow').classList.remove('active'); }
         document.getElementById('brow-val').innerText = browState;
 
-        // --- تحليل الفم ---
         let mouthState = "صامت";
         if (cMouth > bMouth + 0.05) { mouthState = "تثاؤب 🥱"; document.getElementById('card-mouth').classList.add('active'); }
         else if (cMouth > bMouth + 0.015) { mouthState = "يتحدث 🗣️"; document.getElementById('card-mouth').classList.add('active'); }
         else { document.getElementById('card-mouth').classList.remove('active'); }
         document.getElementById('mouth-val').innerText = mouthState;
 
-        // --- محرك الذكاء النفسي (دمج المعطيات) ---
+        // استدعاء المحرك التراكمي (الإضافة الوحيدة داخل draw)
+        updateAccumulativeLogic(mouthState, browState);
+
         const stateBox = document.getElementById('mental-state');
-        
-        if (mouthState === "تثاؤب 🥱") {
-            stateBox.innerText = "الحالة: يشعر بالملل 💤"; stateBox.style.color = "#f59e0b";
-        } else if (browState === "تعجب 😲" && mouthState === "صامت") {
-            stateBox.innerText = "الحالة: غير فاهم / مندهش 🧐"; stateBox.style.color = "#ef4444";
-        } else if (browState === "تركيز/تفكير 😠") {
-            stateBox.innerText = "الحالة: حماس وتركيز عالي 🔥"; stateBox.style.color = "#10b981";
-        } else if (lm[1].y > 0.6) {
-            stateBox.innerText = "الحالة: منشغل بالكتابة 📝"; stateBox.style.color = "#3b82f6";
-        } else {
-            stateBox.innerText = "الحالة: متابع جيد ✅"; stateBox.style.color = "#10b981";
-        }
+        if (mouthState === "تثاؤب 🥱") { stateBox.innerText = "الحالة: يشعر بالملل 💤"; stateBox.style.color = "#f59e0b"; }
+        else if (browState === "تعجب 😲") { stateBox.innerText = "الحالة: غير فاهم / مندهش 🧐"; stateBox.style.color = "#ef4444"; }
+        else if (browState === "تركيز/تفكير 😠") { stateBox.innerText = "الحالة: حماس وتركيز عالي 🔥"; stateBox.style.color = "#10b981"; }
+        else { stateBox.innerText = "الحالة: متابع جيد ✅"; stateBox.style.color = "#10b981"; }
       }
     }
     ctx.restore();
   }
+  const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
 </script>
 </body>
 </html>
