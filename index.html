@@ -3,41 +3,147 @@
 <head>
   <meta charset="utf-8">
   <title>نظام آية Ghesseier v30 - النسخة الكاملة</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-  
   <style>
     :root {
       --accent: #8b5cf6; --bg: #020617; --card: rgba(15, 23, 42, 0.8);
-      /* باليت ألوان الشخصيات */
       --thabet-clr: #48C9B0; --kawthar-clr: #6B8E6B;
       --malak-clr: #7B1414;  --mohammed-clr: #3498DB;
     }
-
-    body { margin: 0; background: var(--bg); color: white; font-family: 'Cairo', sans-serif; display: flex; height: 100vh; overflow: hidden; transition: 0.5s; }
-
-    /* واجهة الأسئلة المتعددة */
-    #onboarding { position: fixed; inset: 0; z-index: 10000; background: radial-gradient(circle, #1e293b, #020617); display: flex; justify-content: center; align-items: center; padding: 20px; }
-    .quiz-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); padding: 40px; border-radius: 30px; border: 1px solid rgba(255, 255, 255, 0.1); max-width: 600px; width: 100%; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
-    .option-btn { display: block; width: 100%; padding: 15px; margin: 10px 0; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 15px; color: white; cursor: pointer; font-size: 1.1rem; transition: 0.3s; }
-    .option-btn:hover { background: var(--accent); transform: translateY(-3px); }
-
-    #side-panel { width: 350px; background: var(--card); padding: 25px; border-left: 3px solid var(--accent); display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 10; }
-    #viewport { flex: 1; position: relative; background: #000; }
-    canvas { width: 100%; height: 100%; transform: scaleX(-1); object-fit: contain; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: white;
+      font-family: 'Cairo', sans-serif;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      transition: 0.5s;
+    }
+    #onboarding {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      background: radial-gradient(circle, #1e293b, #020617);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .quiz-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      padding: 40px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      max-width: 600px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    }
+    .quiz-card h2 {
+      margin-bottom: 25px;
+      font-size: 1.4rem;
+      line-height: 1.6;
+    }
+    .option-btn {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      margin: 10px 0;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 15px;
+      color: white;
+      cursor: pointer;
+      font-size: 1.1rem;
+      font-family: 'Cairo', sans-serif;
+      transition: 0.3s;
+    }
+    .option-btn:hover {
+      background: var(--accent);
+      transform: translateY(-3px);
+    }
+    #side-panel {
+      width: 350px;
+      background: var(--card);
+      padding: 25px;
+      border-left: 3px solid var(--accent);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      z-index: 10;
+      transition: border-color 0.5s;
+    }
+    #viewport {
+      flex: 1;
+      position: relative;
+      background: #000;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      transform: scaleX(-1);
+      object-fit: contain;
+    }
     video { display: none; }
-
-    .stat-card { background: rgba(30, 41, 59, 0.5); padding: 15px; border-radius: 12px; border-right: 5px solid #334155; transition: 0.3s; }
-    .stat-card.active { border-right-color: var(--accent); background: rgba(139, 92, 246, 0.1); }
-    #mental-state { font-size: 1.2rem; text-align: center; padding: 15px; border-radius: 15px; background: rgba(30, 41, 59, 0.8); border: 2px solid var(--accent); margin-bottom: 10px; }
-
-    #character-popup { position: fixed; bottom: 30px; left: 380px; width: 320px; background: var(--card); border-radius: 20px; border: 2px solid var(--accent); padding: 20px; display: none; animation: slideUp 0.5s ease-out; z-index: 100; }
-    @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .stat-card {
+      background: rgba(30, 41, 59, 0.5);
+      padding: 15px;
+      border-radius: 12px;
+      border-right: 5px solid #334155;
+      transition: 0.3s;
+    }
+    .stat-card.active {
+      border-right-color: var(--accent);
+      background: rgba(139, 92, 246, 0.1);
+    }
+    .stat-card .label {
+      font-size: 0.85rem;
+      opacity: 0.7;
+      margin-bottom: 4px;
+    }
+    .stat-card .value {
+      font-size: 1.4rem;
+      font-weight: bold;
+    }
+    #mental-state {
+      font-size: 1rem;
+      text-align: center;
+      padding: 15px;
+      border-radius: 15px;
+      background: rgba(30, 41, 59, 0.8);
+      border: 2px solid var(--accent);
+      margin-bottom: 10px;
+      line-height: 1.6;
+      transition: border-color 0.5s;
+    }
+    #character-popup {
+      position: fixed;
+      bottom: 30px;
+      left: 380px;
+      width: 320px;
+      background: var(--card);
+      border-radius: 20px;
+      border: 2px solid var(--accent);
+      padding: 20px;
+      display: none;
+      animation: slideUp 0.5s ease-out;
+      z-index: 100;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
   </style>
 </head>
 <body>
-
 <div id="onboarding">
   <div class="quiz-card" id="quiz-content">
     <h2 id="q-text">1. ما هو جو الدراسة المثالي لك؟</h2>
@@ -48,21 +154,22 @@
     </div>
   </div>
 </div>
-
 <aside id="side-panel">
   <h2 id="char-name-ui" style="color:var(--accent); text-align:center;">المساعد الذكي</h2>
   <div id="mental-state">بانتظار الاختيار...</div>
-  
   <div class="stat-card">
     <div class="label">رصيد الأداء التراكمي</div>
     <div id="total-score-val" class="value" style="font-size:2.2rem; color:var(--accent); font-weight:bold;">0</div>
   </div>
-
-  <div class="stat-card" id="card-blink"><div class="label">الرمش (فهم/طبيعي)</div><div id="blink-val" class="value">0</div></div>
-  <div class="stat-card" id="card-brow"><div class="label">الحواجب (تركيز/ارتباك)</div><div id="brow-val" class="value">طبيعي</div></div>
-  <div class="stat-card" id="card-mouth"><div class="label">الفم (كلام/تعب)</div><div id="mouth-val" class="value">صامت</div></div>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+    <div class="stat-card" id="card-blink"><div class="label">فهم (رمش)</div><div id="blink-val" class="value">0</div></div>
+    <div class="stat-card" id="card-talk"><div class="label">تحدث</div><div id="talk-val" class="value">0</div></div>
+    <div class="stat-card" id="card-surprise"><div class="label">تعجب</div><div id="surprise-val" class="value">0</div></div>
+    <div class="stat-card" id="card-fatigue"><div class="label">تثاؤب</div><div id="fatigue-val" class="value">0</div></div>
+  </div>
+  <div class="stat-card" id="card-brow"><div class="label">الحواجب</div><div id="brow-val" class="value">طبيعي</div></div>
+  <div class="stat-card" id="card-mouth"><div class="label">حالة الفم</div><div id="mouth-val" class="value">صامت</div></div>
 </aside>
-
 <main id="viewport">
   <video id="input_video"></video>
   <canvas id="output_canvas"></canvas>
@@ -70,81 +177,74 @@
     <h4 id="pop-name" style="margin:0; color:var(--accent);">اسم الشخصية</h4>
     <p id="pop-msg" style="margin-top:10px; font-size:0.9rem;">الرسالة...</p>
   </div>
-</main><script type="module">
-  // --- [إعدادات الوسائط والأدوات] ---
-  const video = document.getElementById('input_video'), 
-        canvas = document.getElementById('output_canvas'), 
-        ctx = canvas.getContext('2d');
-  let faceRes = null;
-  let bEAR = 0.22, bBrow = 0.05, bMouth = 0.02, calibrated = false, frames = 0;
-  let blinks = 0, isClosed = false;
-
-  // --- [مجسات البحث العلمي] ---
-  let mouthOpenStartTime = 0;   // للتثاؤب (6 ثوانٍ)
-  let blinkStartTime = 0;       // لرمشة الفهم (0.5 ثانية)
-  let innerBrowBaseDist = 0;    // خط أساس الحاجبين
-  let noseBaseDist = 0;         // خط أساس انكماش الأنف
-
-  // --- [نظام النقاط والشخصيات] ---
-  let totalScore = 0;
-  let currentCharacter = 'thabet';
-  let lastCharacterSwitchTime = Date.now();
-  let lastReportTime = Date.now();
-  let sessionStats = { concentration: 0, confusion: 0, fatigue: 0, understanding: 0 };
-
+</main>
+<script>
+  const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
+  const video  = document.getElementById('input_video');
+  const canvas = document.getElementById('output_canvas');
+  const ctx    = canvas.getContext('2d');
   const charConfig = {
     thabet: {
-      name: "ثابت", accent: "#48C9B0", 
+      name: "ثابت", accent: "#48C9B0",
       scores: { concentration: 7, understanding: 3, confusion: -7, fatigue: -1 },
       msg: "العلم معادلة منطقية، لنلتزم بالنظام والدقة."
     },
     mohammed: {
-      name: "محمد", accent: "#3498DB", 
+      name: "محمد", accent: "#3498DB",
       scores: { concentration: 10, understanding: 5, confusion: -5, fatigue: -10 },
       msg: "أنت بطل! التحدي هو وقود النجاح، سحقاً للصعاب!"
     },
     malak: {
-      name: "ملك", accent: "#7B1414", 
+      name: "ملك", accent: "#7B1414",
       scores: { concentration: 5, understanding: 10, confusion: -2, fatigue: -2 },
       msg: "الحكمة في الرزانة، والجوهر يكمن في عمق الاستيعاب."
     },
     kawthar: {
-      name: "كوثر", accent: "#6B8E6B", 
+      name: "كوثر", accent: "#6B8E6B",
       scores: { concentration: 2, understanding: 5, confusion: 0, fatigue: 0 },
       msg: "لا تقلق، خذ نفساً عميقاً.. أنا هنا لنساند بعضنا."
     }
   };
-
-  // --- [محرك الأسئلة الثلاثة المتكامل] ---
-  window.handleChoice = (step, choice) => {
-    if(step === 1) {
-        // تخزين مبدئي للانتقال للسؤال الثاني
-        document.getElementById('q-text').innerText = "2. كيف تفضل تلقي ملخص الدرس؟";
-        document.getElementById('options').innerHTML = `
-            <button class="option-btn" onclick="handleChoice(2, 'kawthar')">بأسلوب قصصي دافئ وودود</button>
-            <button class="option-btn" onclick="handleChoice(2, 'malak')">بأسلوب وقور، رزين ومختصر</button>
-            <button class="option-btn" onclick="handleChoice(2, 'mohammed')">بأسلوب حماسي، نقاط سريعة ومركزة</button>
-        `;
-    } 
-    else if(step === 2) {
-        // الانتقال للسؤال الثالث والأخير
-        document.getElementById('q-text').innerText = "3. عند مواجهة تمرين صعب جداً، ما هي رغبتك؟";
-        document.getElementById('options').innerHTML = `
-            <button class="option-btn" onclick="startFinalSystem('thabet')">أحتاج لمنطق ونظام يحلل لي المشكلة</button>
-            <button class="option-btn" onclick="startFinalSystem('malak')">أحتاج لحكمة وهدوء لاستعادة توازني</button>
-            <button class="option-btn" onclick="startFinalSystem('mohammed')">أحتاج لتحدي ودفعة قوية لأتجاوز حدودي</button>
-            <button class="option-btn" onclick="startFinalSystem('kawthar')">أحتاج لشخص يطمئنني ويساندني بلطف</button>
-        `;
+  let faceRes = null;
+  let currentCharacter = 'thabet';
+  let totalScore = 0;
+  let blinks = 0;
+  let isClosed = false;
+  let mouthOpenStartTime = 0;
+  let blinkStartTime = 0;
+  let lastScoreUpdateTime = Date.now();
+  let lastRecalibrationTime = Date.now();
+  let lastCharacterSwitchTime = Date.now();
+  let lastReportTime = Date.now();
+  let mouthHistory = [];
+  let sessionStats = { concentration: 0, confusion: 0, fatigue: 0, understanding: 0, surprise: 0, talking: 0 };
+  let baseFace = { ear: 0.22, mouth: 0.02, innerBrow: 0.18, outerBrow: 0.25, noseWrinkle: 0.1 };
+  function handleChoice(step, choice) {
+    const qText      = document.getElementById('q-text');
+    const optionsDiv = document.getElementById('options');
+    if (step === 1) {
+      qText.innerText = "2. كيف تفضل تلقي ملخص الدرس؟";
+      optionsDiv.innerHTML = `
+        <button class="option-btn" onclick="handleChoice(2, 'kawthar')">بأسلوب قصصي دافئ وودود</button>
+        <button class="option-btn" onclick="handleChoice(2, 'malak')">بأسلوب وقور، رزين ومختصر</button>
+        <button class="option-btn" onclick="handleChoice(2, 'mohammed')">بأسلوب حماسي، نقاط سريعة ومركزة</button>
+      `;
+    } else if (step === 2) {
+      qText.innerText = "3. عند مواجهة تمرين صعب جداً، ما هي رغبتك؟";
+      optionsDiv.innerHTML = `
+        <button class="option-btn" onclick="startFinalSystem('thabet')">أحتاج لمنطق ونظام يحلل لي المشكلة</button>
+        <button class="option-btn" onclick="startFinalSystem('malak')">أحتاج لحكمة وهدوء لاستعادة توازني</button>
+        <button class="option-btn" onclick="startFinalSystem('mohammed')">أحتاج لتحدي ودفعة قوية لأتجاوز حدودي</button>
+        <button class="option-btn" onclick="startFinalSystem('kawthar')">أحتاج لشخص يطمئنني ويساندني بلطف</button>
+      `;
     }
-  };
-
-  window.startFinalSystem = (finalChar) => {
-    currentCharacter = finalChar; 
+  }
+  function startFinalSystem(finalChar) {
+    currentCharacter = finalChar;
     document.getElementById('onboarding').style.display = 'none';
     applyTheme(finalChar);
     startSystem();
-  };
-
+  }
   function applyTheme(char) {
     const config = charConfig[char];
     document.documentElement.style.setProperty('--accent', config.accent);
@@ -152,141 +252,154 @@
     document.getElementById('mental-state').innerText = config.msg;
     lastCharacterSwitchTime = Date.now();
   }
-
-  // سيتبع في الدفعة الثالثة: منطق التحليل العلمي ودالة DRAW // --- [المحرك العلمي للتحليل اللحظي] ---
-  function analyzeFaceScientific(lm, cEAR, cBrow, cMouth) {
+  function analyzeFaceScientific(lm) {
     const now = Date.now();
-    let results = { brow: "طبيعي", mouth: "صامت" };
-
-    // 1. تحليل رمشة الفهم (> 0.5 ثانية)
-    if (cEAR < bEAR * 0.75) {
+    let results = { brow: "طبيعي", mouth: "صامت", action: "مراقبة..." };
+    const faceWidth    = dist(lm[234], lm[454]);
+    const cEAR         = ((dist(lm[159], lm[145]) + dist(lm[386], lm[374])) / 2) / faceWidth;
+    const cMouth       = dist(lm[13], lm[14]) / faceWidth;
+    const cInnerBrow   = dist(lm[55], lm[285]) / faceWidth;
+    const cOuterBrow   = ((dist(lm[105], lm[159]) + dist(lm[334], lm[386])) / 2) / faceWidth;
+    const cNoseWrinkle = dist(lm[1], lm[168]) / faceWidth;
+    if (now - lastRecalibrationTime > 60000) {
+      baseFace.ear         = cEAR;
+      baseFace.mouth       = cMouth;
+      baseFace.innerBrow   = cInnerBrow;
+      baseFace.outerBrow   = cOuterBrow;
+      baseFace.noseWrinkle = cNoseWrinkle;
+      lastRecalibrationTime = now;
+    }
+    mouthHistory.push({ time: now, val: cMouth });
+    mouthHistory = mouthHistory.filter(m => now - m.time < 1500);
+    let mouthChanges = 0;
+    for (let i = 1; i < mouthHistory.length; i++) {
+      if (Math.abs(mouthHistory[i].val - mouthHistory[i-1].val) > 0.005) mouthChanges++;
+    }
+    let isTalking = mouthChanges > 5;
+    if (cMouth > baseFace.mouth * 2.5) {
+      if (mouthOpenStartTime === 0) mouthOpenStartTime = now;
+      if (now - mouthOpenStartTime >= 3000 && !isTalking) {
+        results.mouth  = "تثاؤب 🥱";
+        results.action = "fatigue";
+      }
+    } else {
+      mouthOpenStartTime = 0;
+      if (isTalking) {
+        results.mouth  = "يتحدث 🗣️";
+        results.action = "talking";
+      } else if (cMouth > baseFace.mouth * 1.2) {
+        results.mouth = "شفاه متباعدة";
+      } else {
+        results.mouth = "صامت 😐";
+      }
+    }
+    if (cEAR < baseFace.ear * 0.7) {
       if (blinkStartTime === 0) blinkStartTime = now;
       isClosed = true;
     } else {
       if (isClosed && blinkStartTime !== 0) {
         let duration = now - blinkStartTime;
-        if (duration > 500) { 
-          sessionStats.understanding++;
-          totalScore += charConfig[currentCharacter].scores.understanding;
-        } else { blinks++; }
+        if (duration > 500 && duration < 2000) {
+          results.action = "understanding";
+        } else {
+          blinks++;
+        }
       }
-      blinkStartTime = 0; isClosed = false;
+      blinkStartTime = 0;
+      isClosed = false;
     }
-
-    // 2. تحليل الحواجب (تركيز vs ارتباك) باستخدام عضلة الأنف
-    const currentInnerBrow = dist(lm[55], lm[285]);
-    const currentNoseWrinkle = dist(lm[1], lm[168]);
-    
-    if (currentInnerBrow < innerBrowBaseDist * 0.92) {
-      if (currentNoseWrinkle < noseBaseDist * 0.95) {
-        results.brow = "ارتباك 🧐";
-        sessionStats.confusion++;
-        totalScore += charConfig[currentCharacter].scores.confusion;
-      } else {
-        results.brow = "تركيز 🔥";
-        sessionStats.concentration++;
-        totalScore += charConfig[currentCharacter].scores.concentration;
-      }
+    if (cOuterBrow > baseFace.outerBrow * 1.15) {
+      results.brow   = "تعجب 😲";
+      results.action = "surprise";
+    } else if (cInnerBrow < baseFace.innerBrow * 0.95 && cNoseWrinkle < baseFace.noseWrinkle * 0.95) {
+      results.brow   = "ارتباك 🧐";
+      results.action = "confusion";
+    } else if (cInnerBrow < baseFace.innerBrow * 0.95) {
+      results.brow   = "تركيز 🔥";
+      results.action = "concentration";
     }
-
-    // 3. تحليل التثاؤب (مستمر لـ 5 ثوانٍ فأكثر)
-    if (cMouth > bMouth + 0.04) {
-      if (mouthOpenStartTime === 0) mouthOpenStartTime = now;
-      if ((now - mouthOpenStartTime) / 1000 >= 5) {
-        results.mouth = "تثاؤب 🥱";
-        sessionStats.fatigue++;
-        totalScore += charConfig[currentCharacter].scores.fatigue;
-      } else { results.mouth = "يتحدث 🗣️"; }
-    } else { mouthOpenStartTime = 0; }
-
+    if (now - lastScoreUpdateTime >= 1000) {
+      if      (results.action === "concentration") { sessionStats.concentration++; totalScore += charConfig[currentCharacter].scores.concentration; }
+      else if (results.action === "confusion")     { sessionStats.confusion++;     totalScore += charConfig[currentCharacter].scores.confusion; }
+      else if (results.action === "fatigue")       { sessionStats.fatigue++;       totalScore += charConfig[currentCharacter].scores.fatigue; }
+      else if (results.action === "understanding") { sessionStats.understanding++; totalScore += charConfig[currentCharacter].scores.understanding; }
+      else if (results.action === "surprise")      { sessionStats.surprise++; }
+      else if (results.action === "talking")       { sessionStats.talking++; }
+      lastScoreUpdateTime = now;
+    }
     return results;
   }
-
-  // --- [إعداد MediaPipe وتشغيل الكاميرا] ---
-  const faceMesh = new FaceMesh({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
-  faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
-  faceMesh.onResults(res => { faceRes = (res.multiFaceLandmarks) ? res.multiFaceLandmarks[0] : null; });
-
-  window.startSystem = () => {
+  function draw() {
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    if (faceRes) {
+      const lm       = faceRes;
+      const analysis = analyzeFaceScientific(lm);
+      document.getElementById('total-score-val').innerText = Math.floor(totalScore);
+      document.getElementById('blink-val').innerText    = sessionStats.understanding;
+      document.getElementById('talk-val').innerText     = sessionStats.talking;
+      document.getElementById('surprise-val').innerText = sessionStats.surprise;
+      document.getElementById('fatigue-val').innerText  = sessionStats.fatigue;
+      document.getElementById('brow-val').innerText     = analysis.brow;
+      document.getElementById('mouth-val').innerText    = analysis.mouth;
+      const now = Date.now();
+      if (now - lastReportTime >= 30000) {
+        lastReportTime = now;
+        processCycleLogic();
+      }
+    }
+    ctx.restore();
+  }
+  function processCycleLogic() {
+    const config = charConfig[currentCharacter];
+    let msg = "";
+    if (sessionStats.fatigue > 1) {
+      msg = currentCharacter === 'mohammed'
+        ? "التعب عدو الأبطال! استعد طاقتك الآن!"
+        : "أنت ترهق نفسك، خذ استراحة قصيرة.";
+      if (Date.now() - lastCharacterSwitchTime > 300000 && currentCharacter !== 'kawthar') {
+        applyTheme('kawthar');
+        msg = "أرى أنك بحاجة لهدوء كوثر الآن.. ارتح قليلاً.";
+      }
+    } else if (sessionStats.understanding > 1) {
+      msg = "رائع! أرى أن الفكرة قد وصلت لعمق ذهنك.";
+    }
+    if (msg) {
+      const pop = document.getElementById('character-popup');
+      document.getElementById('pop-name').innerText = config.name;
+      document.getElementById('pop-msg').innerText  = msg;
+      pop.style.display = 'block';
+      setTimeout(() => pop.style.display = 'none', 5000);
+    }
+    sessionStats = { concentration: 0, confusion: 0, fatigue: 0, understanding: 0, surprise: 0, talking: 0 };
+  }
+  const faceMesh = new FaceMesh({
+    locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
+  });
+  faceMesh.setOptions({
+    maxNumFaces: 1,
+    refineLandmarks: true,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.6
+  });
+  faceMesh.onResults(res => {
+    faceRes = (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0)
+      ? res.multiFaceLandmarks[0]
+      : null;
+  });
+  function startSystem() {
     const camera = new Camera(video, {
       onFrame: async () => {
-        await faceMesh.send({image: video});
+        await faceMesh.send({ image: video });
         draw();
       },
       width: 640, height: 480
     });
     camera.start();
-  };
-
-  function draw() {
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-    ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    if (faceRes) {
-      const lm = faceRes;
-      const cEAR = (dist(lm[159], lm[145]) + dist(lm[386], lm[374])) / (2 * dist(lm[33], lm[133]));
-      const cBrow = (dist(lm[105], lm[159]) + dist(lm[334], lm[386])) / 2;
-      const cMouth = dist(lm[13], lm[14]);
-
-      if (!calibrated && frames < 30) {
-        bEAR = cEAR; bBrow = cBrow; bMouth = cMouth;
-        innerBrowBaseDist = dist(lm[55], lm[285]);
-        noseBaseDist = dist(lm[1], lm[168]);
-        frames++; if(frames === 30) calibrated = true;
-      }
-
-      if (calibrated) {
-        const analysis = analyzeFaceScientific(lm, cEAR, cBrow, cMouth);
-        
-        // تحديث الواجهة
-        document.getElementById('total-score-val').innerText = Math.floor(totalScore);
-        document.getElementById('blink-val').innerText = blinks;
-        document.getElementById('brow-val').innerText = analysis.brow;
-        document.getElementById('mouth-val').innerText = analysis.mouth;
-        
-        // التدخل الدوري (30 ثانية)
-        const now = Date.now();
-        if (now - lastReportTime >= 30000) {
-          lastReportTime = now;
-          processCycleLogic();
-        }
-      }
-    }
-    ctx.restore();
   }
-
-  function processCycleLogic() {
-    const config = charConfig[currentCharacter];
-    let msg = "";
-
-    if (sessionStats.fatigue > 1) {
-      msg = currentCharacter === 'mohammed' ? "التعب عدو الأبطال! استعد طاقتك الآن!" : "أنت ترهق نفسك، خذ استراحة قصيرة.";
-      // تبديل تلقائي لكوثر بعد 5 دقائق من التعب المستمر
-      if (Date.now() - lastCharacterSwitchTime > 300000 && currentCharacter !== 'kawthar') {
-        applyTheme('kawthar');
-        msg = "محمد يرى أنك بحاجة لهدوء كوثر الآن.. ارتح قليلاً.";
-      }
-    } else if (sessionStats.understanding > 1) {
-      msg = "رائع! أرى أن الفكرة قد وصلت لعمق ذهنك.";
-    }
-
-    if (msg) {
-      const pop = document.getElementById('character-popup');
-      document.getElementById('pop-name').innerText = config.name;
-      document.getElementById('pop-msg').innerText = msg;
-      pop.style.display = 'block';
-      setTimeout(() => pop.style.display = 'none', 5000);
-    }
-    sessionStats = { concentration: 0, confusion: 0, fatigue: 0, understanding: 0 };
-  }
-
-  const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
-</script><script> دالة حساب المسافة
-  const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
-
 </script>
-
 </body>
 </html>
