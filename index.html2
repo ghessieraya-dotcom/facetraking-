@@ -1,0 +1,2011 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>آية التعليمية — رفيق دراستك الذكي</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <style>
+    /* ═══════════════════════════════════════════
+       ROOT VARIABLES
+    ═══════════════════════════════════════════ */
+    :root {
+      --accent:    #C96482;
+      --accent2:   #e8a87c;
+      --bg:        #06081A;
+      --card:      rgba(12, 18, 45, 0.82);
+      --glass:     rgba(15, 22, 52, 0.75);
+      --border:    rgba(200, 160, 220, 0.18);
+      --text:      rgba(230, 215, 200, 0.92);
+      --text-dim:  rgba(180, 165, 200, 0.65);
+      --glow:      rgba(200, 100, 130, 0.4);
+    }
+
+    /* ═══════════════════════════════════════════
+       RESET & BASE
+    ═══════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Cairo', 'Tajawal', sans-serif;
+      overflow: hidden;
+    }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: rgba(15,22,45,0.5); }
+    ::-webkit-scrollbar-thumb { background: rgba(200,100,130,0.4); border-radius: 3px; }
+
+    /* ═══════════════════════════════════════════
+       LOFI BACKGROUND
+    ═══════════════════════════════════════════ */
+    #lofi-bg {
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse at 20% 80%, rgba(80,40,100,0.25) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 20%, rgba(40,60,120,0.2) 0%, transparent 55%),
+        linear-gradient(180deg, #060815 0%, #0a0d20 40%, #080c1a 100%);
+    }
+    #lofi-bg::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    }
+    .rain-drop {
+      position: absolute;
+      width: 1px;
+      background: rgba(180,200,240,0.18);
+      transform: rotate(15deg);
+      animation: rainFall linear infinite;
+    }
+    @keyframes rainFall {
+      0%   { transform: rotate(15deg) translateY(-120px); opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 0.7; }
+      100% { transform: rotate(15deg) translateY(calc(100vh + 80px)); opacity: 0; }
+    }
+
+    /* ═══════════════════════════════════════════
+       GLASS CARD
+    ═══════════════════════════════════════════ */
+    .glass-card {
+      background: var(--glass);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      border: 1px solid var(--border);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,210,160,0.06);
+    }
+
+    /* ═══════════════════════════════════════════
+       SCREEN SYSTEM
+    ═══════════════════════════════════════════ */
+    .screen {
+      position: fixed; inset: 0; z-index: 100;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      animation: fadeIn 0.5s ease forwards;
+    }
+    .screen.active { display: flex; }
+    @keyframes fadeIn  { from { opacity:0; transform:translateY(12px);} to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeOut { from { opacity:1; } to { opacity:0; } }
+    @keyframes slideUp { from { transform:translateY(60px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+    @keyframes float   { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-10px); } }
+    @keyframes blink   { 0%,49% { opacity:1; } 50%,100% { opacity:0; } }
+    @keyframes spin    { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+    @keyframes particle-float {
+      0%   { transform:translateY(0) scale(1); opacity:0; }
+      10%  { opacity:0.8; }
+      80%  { opacity:0.5; }
+      100% { transform:translateY(-100vh) scale(0.2); opacity:0; }
+    }
+    @keyframes typewriter { from { width:0; } to { width:100%; } }
+    @keyframes progressGlow {
+      0%,100% { box-shadow: 0 0 8px rgba(200,100,130,0.5); }
+      50%      { box-shadow: 0 0 20px rgba(200,100,130,0.9); }
+    }
+
+    /* ═══════════════════════════════════════════
+       SCREEN 1 — CONSENT
+    ═══════════════════════════════════════════ */
+    #screen-consent {
+      background: rgba(4,6,18,0.95);
+      backdrop-filter: blur(14px);
+      z-index: 9999;
+    }
+    .consent-card {
+      max-width: 580px; width: 100%; max-height: 94vh;
+      overflow-y: auto; border-radius: 12px; padding: 2rem;
+    }
+    .consent-card h1 {
+      font-size: 1.5rem; color: hsl(280,60%,75%);
+      text-align: center; margin-bottom: .4rem;
+    }
+    .consent-card .subtitle {
+      text-align: center; font-size: .88rem;
+      color: var(--text-dim); margin-bottom: 1.4rem;
+    }
+    .lang-toggle {
+      display: flex; gap: 8px; justify-content: flex-end;
+      margin-bottom: 1rem;
+    }
+    .lang-btn {
+      font-size: .75rem; padding: .25rem .6rem;
+      border-radius: 3px; cursor: pointer;
+      background: transparent; color: var(--text-dim);
+      border: 1px solid rgba(180,150,220,0.25);
+      transition: all .2s;
+    }
+    .lang-btn.active {
+      background: rgba(120,80,200,0.25);
+      border-color: rgba(180,150,220,0.6);
+      color: hsl(280,60%,78%);
+    }
+    .policy-section {
+      background: rgba(18,14,38,0.55);
+      border: 1px solid rgba(180,150,220,0.1);
+      border-radius: 6px; padding: .8rem 1rem;
+      margin-bottom: .65rem;
+    }
+    .policy-section .ptitle {
+      font-size: .88rem; font-weight: 600;
+      color: hsl(280,60%,75%); margin-bottom: .3rem;
+    }
+    .policy-section p {
+      font-size: .8rem; color: var(--text-dim); line-height: 1.65;
+    }
+    .checkbox-row {
+      display: flex; align-items: flex-start; gap: 12px;
+      cursor: pointer; margin-bottom: .75rem;
+      flex-direction: row-reverse;
+    }
+    .checkbox-box {
+      width: 20px; height: 20px; flex-shrink: 0;
+      border: 2px solid rgba(180,150,220,0.3);
+      border-radius: 3px; display: flex;
+      align-items: center; justify-content: center;
+      transition: all .2s; margin-top: 2px;
+    }
+    .checkbox-box.checked {
+      background: rgba(120,80,200,0.3);
+      border-color: hsl(280,60%,65%);
+    }
+    .checkbox-box.checked::after { content:'✓'; color:hsl(280,60%,80%); font-size:.75rem; }
+    .checkbox-row span { font-size: .83rem; line-height: 1.5; }
+    .consent-btns { display:flex; gap:10px; margin-top:1.2rem; flex-direction:row-reverse; }
+    .btn-accept {
+      flex: 1; padding: .75rem 1.2rem;
+      background: rgba(120,80,200,0.3);
+      border: 2px solid hsl(280,60%,65%);
+      color: hsl(280,60%,82%); border-radius: 6px;
+      cursor: pointer; font-size: .88rem;
+      font-family: 'Cairo', sans-serif;
+      transition: all .25s;
+      box-shadow: 0 0 18px rgba(120,80,200,0.35);
+    }
+    .btn-accept:disabled {
+      background: rgba(40,35,60,0.5);
+      border-color: rgba(120,80,150,0.2);
+      color: rgba(150,130,180,0.4);
+      cursor: not-allowed; box-shadow: none;
+    }
+    .btn-accept:not(:disabled):hover {
+      background: rgba(120,80,200,0.45);
+      box-shadow: 0 0 28px rgba(120,80,200,0.5);
+    }
+    .btn-decline {
+      padding: .75rem 1.2rem;
+      background: transparent;
+      border: 1px solid rgba(180,100,100,0.35);
+      color: rgba(200,120,120,0.7); border-radius: 6px;
+      cursor: pointer; font-size: .82rem;
+      font-family: 'Cairo', sans-serif; transition: all .2s;
+    }
+    .btn-decline:hover { background: rgba(180,60,60,0.1); }
+
+    /* ═══════════════════════════════════════════
+       SCREEN 2 — LANGUAGE
+    ═══════════════════════════════════════════ */
+    #screen-language { flex-direction: column; gap: 2rem; }
+    .logo-area { text-align: center; }
+    .logo-area img { width: 200px; animation: float 5s ease-in-out infinite; filter: drop-shadow(0 0 25px rgba(220,100,150,0.4)); }
+    .logo-area .tagline {
+      font-size: 1rem; letter-spacing: .18em;
+      color: hsl(38,75%,65%); margin-top: .5rem;
+      text-shadow: 0 0 10px rgba(200,160,60,0.4);
+    }
+    .lang-card { max-width: 420px; width: 100%; border-radius: 8px; padding: 2.2rem 2.5rem; text-align: center; }
+    .lang-card h2 { font-size: 1rem; color: hsl(220,20%,65%); letter-spacing: .12em; margin-bottom: .4rem; }
+    .lang-card h3 { font-size: 1.5rem; color: hsl(38,75%,65%); margin-bottom: 1.6rem; }
+    .lang-option-btn {
+      display: flex; align-items: center; justify-content: center;
+      gap: 1rem; width: 100%; padding: .85rem 1.5rem;
+      border-radius: 6px; cursor: pointer; font-size: .9rem;
+      font-family: 'Cairo', sans-serif;
+      transition: all .2s; margin-bottom: .75rem;
+    }
+    .lang-option-btn.pink {
+      background: rgba(200,80,120,0.2);
+      border: 2px solid hsl(330,65%,65%);
+      color: hsl(330,65%,80%);
+      box-shadow: 0 0 14px rgba(200,80,120,0.25);
+    }
+    .lang-option-btn.orange {
+      background: rgba(180,90,30,0.2);
+      border: 2px solid hsl(25,85%,60%);
+      color: hsl(25,85%,75%);
+      box-shadow: 0 0 14px rgba(180,90,30,0.25);
+    }
+    .lang-option-btn:hover { transform: translateY(-2px); filter: brightness(1.15); }
+    .lang-option-btn:active { transform: scale(0.97); }
+
+    /* ═══════════════════════════════════════════
+       SCREEN 3 — NAME
+    ═══════════════════════════════════════════ */
+    #screen-name { flex-direction: column; gap: 1.5rem; }
+    .name-card { max-width: 480px; width: 100%; border-radius: 8px; padding: 2.2rem 2.4rem; }
+    .name-card .step-label {
+      font-size: .72rem; letter-spacing: .2em;
+      color: rgba(220,100,150,0.7); text-align: center;
+      margin-bottom: 1.2rem; display: flex; align-items: center; gap: 10px;
+    }
+    .step-label::before, .step-label::after {
+      content:''; flex:1; height:1px;
+      background: linear-gradient(90deg, transparent, rgba(220,100,150,0.4));
+    }
+    .step-label::after { background: linear-gradient(90deg, rgba(220,100,150,0.4), transparent); }
+    .name-prompt {
+      font-size: 1.4rem; color: hsl(38,75%,70%); min-height: 2.2rem;
+      margin-bottom: 1.4rem; line-height: 1.6;
+    }
+    .pixel-input {
+      width: 100%; background: rgba(12,18,45,0.85);
+      border: 2px solid rgba(220,100,150,0.3);
+      color: hsl(330,65%,85%); font-family: 'Cairo', sans-serif;
+      font-size: 1.2rem; padding: .7rem 1.1rem;
+      outline: none; border-radius: 4px;
+      transition: all .2s; letter-spacing: .03em;
+    }
+    .pixel-input::placeholder { color: rgba(220,100,150,0.4); }
+    .pixel-input:focus {
+      border-color: hsl(330,65%,65%);
+      box-shadow: 0 0 18px rgba(220,100,150,0.3);
+      background: rgba(12,18,45,0.96);
+    }
+    .char-count { font-size: .7rem; color: var(--text-dim); text-align: left; margin-top: .3rem; }
+    .btn-start {
+      width: 100%; padding: .85rem;
+      background: rgba(160,120,40,0.2);
+      border: 2px solid hsl(38,75%,60%);
+      color: hsl(38,75%,80%); border-radius: 6px;
+      cursor: pointer; font-size: .9rem; font-weight: 600;
+      font-family: 'Cairo', sans-serif;
+      box-shadow: 0 0 14px rgba(160,120,40,0.3);
+      transition: all .2s; margin-top: 1.4rem;
+    }
+    .btn-start:hover { background: rgba(160,120,40,0.35); transform: translateY(-2px); }
+    .btn-start:active { transform: scale(0.97); }
+    .btn-start:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+    /* ═══════════════════════════════════════════
+       SCREEN 4 — WELCOME TRANSITION
+    ═══════════════════════════════════════════ */
+    #screen-welcome { flex-direction: column; gap: 1.5rem; }
+    .welcome-card { max-width: 380px; width: 100%; border-radius: 8px; padding: 2.4rem 2.8rem; text-align: center; }
+    .welcome-card .greet {
+      font-size: .72rem; letter-spacing: .18em;
+      color: hsl(220,20%,60%); margin-bottom: .5rem;
+    }
+    .welcome-card .welcome-name {
+      font-size: 2.5rem; font-weight: 700;
+      color: hsl(330,65%,75%); line-height: 1.2;
+      text-shadow: 0 0 20px rgba(220,100,150,0.6);
+    }
+    .welcome-card .decoration { font-size: 1.4rem; margin-top: .8rem; }
+    .loading-card { max-width: 380px; width: 100%; border-radius: 8px; padding: 2rem 2.4rem; }
+    .loading-label { font-size: .7rem; letter-spacing: .12em; color: hsl(38,75%,65%); text-align: center; margin-bottom: 1.2rem; }
+    .progress-bar { height: 10px; background: rgba(28,36,70,0.8); border: 2px solid rgba(220,100,150,0.3); border-radius: 0; overflow: hidden; margin-bottom: 1rem; animation: progressGlow 1.5s ease-in-out infinite; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, hsl(330,65%,55%), hsl(330,65%,70%), hsl(25,85%,60%)); transition: width .3s ease; }
+    .loading-step { display: flex; align-items: center; gap: 10px; padding: .3rem 0; }
+    .loading-step .icon { font-size: .85rem; width: 18px; flex-shrink: 0; }
+    .loading-step .step-text { font-size: .88rem; transition: color .3s; }
+
+    /* ═══════════════════════════════════════════
+       SCREEN 5 — QUIZ
+    ═══════════════════════════════════════════ */
+    #screen-quiz { flex-direction: column; padding: 24px 20px; overflow-y: auto; align-items: center; }
+    .quiz-header {
+      width: 100%; max-width: 680px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.2rem; flex-shrink: 0;
+    }
+    .quiz-logo-area { display:flex; align-items:center; gap:.6rem; }
+    .quiz-logo-area .brand { font-size:.65rem; color:hsl(38,75%,65%); letter-spacing:.12em; }
+    .quiz-logo-area .user-name-display { font-size:.9rem; color:var(--text-dim); }
+    .q-counter { padding: .45rem .9rem; border-radius: 3px; text-align: right; }
+    .q-counter .q-label { font-size: .65rem; color: var(--text-dim); }
+    .q-counter .q-num { font-size: 1.3rem; font-weight: 700; color: hsl(330,65%,70%); }
+    .quiz-progress-wrap { width: 100%; max-width: 680px; margin-bottom: 1.2rem; flex-shrink: 0; }
+    .quiz-card {
+      width: 100%; max-width: 680px; border-radius: 6px;
+      padding: 1.8rem 1.8rem; flex-shrink: 0;
+    }
+    .q-badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-size: .65rem; letter-spacing: .08em;
+      background: linear-gradient(135deg, rgba(220,100,150,0.18), rgba(240,140,60,0.18));
+      border: 1px solid rgba(220,100,150,0.38);
+      padding: .3rem .7rem; border-radius: 3px;
+      color: hsl(330,65%,70%); margin-bottom: 1rem;
+    }
+    .quiz-divider { height: 1px; flex: 1; background: linear-gradient(90deg, rgba(220,100,150,0.28), transparent); margin-right: .6rem; }
+    .q-text {
+      font-size: 1.05rem; font-weight: 500; color: hsl(38,75%,85%);
+      line-height: 1.65; margin-bottom: 1.4rem;
+    }
+    .option-btn {
+      display: flex; align-items: center; gap: 1rem; width: 100%;
+      padding: .85rem 1.1rem; border-radius: 4px; cursor: pointer;
+      font-family: 'Cairo', sans-serif; font-size: .95rem;
+      transition: all .2s; margin-bottom: .65rem;
+      background: rgba(12,18,48,0.45);
+      border: 1px solid rgba(180,150,120,0.14);
+      color: rgba(220,200,180,0.88); text-align: right;
+      flex-direction: row-reverse;
+    }
+    .option-btn:hover { transform: translateX(-5px); border-color: rgba(220,100,150,0.45) !important; }
+    .option-btn.selected { border-width: 2px !important; background: rgba(220,100,150,0.14) !important; color: hsl(38,75%,88%) !important; }
+    .option-letter {
+      width: 26px; height: 26px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .6rem; border: 1px solid rgba(180,150,120,0.22);
+      border-radius: 2px; transition: all .2s;
+    }
+    .option-btn.selected .option-letter { background: rgba(220,100,150,0.28); }
+    .quiz-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 1.2rem; flex-direction: row-reverse; }
+    .btn-prev, .btn-next {
+      padding: .55rem 1.2rem; border-radius: 5px;
+      cursor: pointer; font-family: 'Cairo', sans-serif;
+      font-size: .85rem; transition: all .2s;
+    }
+    .btn-prev {
+      background: rgba(28,36,70,0.5); border: 1px solid rgba(150,130,160,0.35);
+      color: rgba(180,160,140,0.8);
+    }
+    .btn-prev:disabled { opacity: .3; cursor: not-allowed; }
+    .btn-next {
+      background: rgba(200,80,120,0.22); border: 2px solid hsl(330,65%,65%);
+      color: hsl(330,65%,82%); font-weight: 600;
+      box-shadow: 0 0 12px rgba(200,80,120,0.25);
+    }
+    .btn-next:disabled { opacity: .38; cursor: not-allowed; box-shadow: none; border-color: rgba(150,130,160,0.3); color: rgba(150,130,160,0.5); background: rgba(28,36,70,0.5); }
+    .btn-next:not(:disabled):hover { background: rgba(200,80,120,0.38); transform: translateY(-2px); }
+
+    /* ═══════════════════════════════════════════
+       SCREEN 6 — ANALYZING
+    ═══════════════════════════════════════════ */
+    #screen-analyzing { flex-direction: column; gap: 1.2rem; }
+    .analyzing-card { max-width: 400px; width: 100%; border-radius: 8px; padding: 2.4rem 2.8rem; text-align: center; }
+    .analyze-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 1.2rem; }
+    .analyze-bar-wrap { margin-bottom: .55rem; }
+    .analyze-bar-bg { height: 5px; background: rgba(20,15,40,0.8); border-radius: 2px; overflow: hidden; }
+    .analyze-bar-fill { height: 100%; border-radius: 2px; transition: width .1s linear; }
+    .analyze-pct { font-size: 1rem; margin-top: .6rem; animation: blink 1.4s step-end infinite; }
+    .spinner {
+      width: 52px; height: 52px; border-radius: 50%;
+      border: 3px solid transparent; border-top-color: var(--accent);
+      margin: 0 auto 1.2rem; animation: spin 1s linear infinite;
+    }
+
+    /* ═══════════════════════════════════════════
+       SCREEN 7 — CHARACTER REVEAL
+    ═══════════════════════════════════════════ */
+    #screen-reveal { flex-direction: column; overflow-y: auto; padding: 24px 16px; align-items: center; }
+    .reveal-header { text-align:center; margin-bottom: 1rem; width: 100%; max-width: 560px; }
+    .reveal-label { font-size: .65rem; letter-spacing: .18em; margin-bottom: .3rem; }
+    .reveal-intro { font-size: 1.1rem; color: rgba(215,200,180,0.88); }
+    .char-card { max-width: 560px; width: 100%; border-radius: 8px; padding: 1.6rem; }
+    .char-img-wrap { display: flex; justify-content: center; margin-bottom: 1rem; }
+    .char-img {
+      width: 180px; height: 180px; object-fit: cover; object-position: top center;
+      overflow: hidden; animation: float 4s ease-in-out infinite;
+    }
+    .char-img.rounded  { border-radius: 50% 50% 45% 45%; }
+    .char-img.square   { border-radius: 4px; clip-path: polygon(0 0, 100% 0, 100% 88%, 88% 100%, 0 100%); }
+    .char-img.hexagon  { clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%); }
+    .char-img.portrait { border-radius: 8px 8px 50% 50% / 8px 8px 20% 20%; }
+    .char-name { text-align:center; margin-bottom: .8rem; }
+    .char-name h2 { font-size: 2.2rem; font-weight: 700; margin-bottom: .15rem; }
+    .char-name .char-title { font-size: .72rem; letter-spacing: .12em; }
+    .divider { display:flex; align-items:center; gap:10px; margin: .6rem 0; }
+    .divider-line { flex:1; height:1px; }
+    .divider-diamond { width:6px; height:6px; transform:rotate(45deg); flex-shrink:0; }
+    .char-desc { font-size: .88rem; color: rgba(210,195,175,0.85); line-height: 1.75; margin-bottom: .8rem; }
+    .voice-note {
+      display:flex; align-items:center; gap:.5rem;
+      border-radius: 4px; padding: .55rem .8rem;
+      margin-bottom: .8rem; font-size: .78rem; font-style: italic;
+      flex-direction: row-reverse;
+    }
+    .char-msg-box { border-radius: 4px; padding: .8rem; margin-bottom: 1rem; min-height: 50px; }
+    .char-msg { font-size: 1rem; line-height: 1.6; }
+    .score-section { border-radius: 4px; padding: .8rem; margin-bottom: .8rem; }
+    .score-section .section-label { font-size: .62rem; letter-spacing: .14em; margin-bottom: .75rem; }
+    .score-row { margin-bottom: .45rem; }
+    .score-row-top { display:flex; align-items:center; gap:8px; margin-bottom: .25rem; flex-direction: row-reverse; }
+    .score-name { font-size: .88rem; min-width: 55px; text-align: right; }
+    .score-bar-bg { flex:1; height:5px; background:rgba(12,10,32,0.8); border-radius:2px; overflow:hidden; }
+    .score-bar-fill { height:100%; border-radius:2px; transition: width .8s ease; }
+    .score-pct { font-size: .8rem; min-width: 32px; text-align: left; }
+    .reco-section { border-radius: 4px; padding: .8rem; margin-bottom: 1rem; }
+    .reco-section .section-label { font-size: .62rem; letter-spacing: .14em; margin-bottom: .75rem; }
+    .reco-item { display:flex; align-items:flex-start; gap:.5rem; margin-bottom: .55rem; flex-direction: row-reverse; }
+    .reco-item .arrow { flex-shrink:0; margin-top:3px; }
+    .reco-item span { font-size: .86rem; color: rgba(200,185,165,0.88); line-height: 1.6; }
+    .btn-proceed {
+      width: 100%; padding: .9rem;
+      border-radius: 6px; cursor: pointer;
+      font-family: 'Cairo', sans-serif; font-size: .9rem; font-weight: 600;
+      transition: all .2s; margin-bottom: .75rem; display:flex; align-items:center; justify-content:center; gap:.5rem;
+    }
+    .btn-proceed:hover { filter: brightness(1.15); transform: translateY(-2px); }
+    .btn-restart {
+      width: 100%; padding: .7rem; background: transparent;
+      border-radius: 6px; cursor: pointer; font-family: 'Cairo', sans-serif;
+      font-size: .82rem; color: var(--text-dim);
+      border: 1px solid rgba(200,180,220,0.18); transition: all .2s;
+    }
+    .btn-restart:hover { border-color: rgba(200,180,220,0.35); color: var(--text); }
+
+    /* ═══════════════════════════════════════════
+       SCREEN 8 — DASHBOARD (Face Analysis)
+    ═══════════════════════════════════════════ */
+    #screen-dashboard {
+      display: none; flex-direction: row;
+      width: 100%; height: 100vh; padding: 0;
+      position: fixed; inset: 0; z-index: 200;
+      animation: none;
+    }
+    #screen-dashboard.active { display: flex; }
+
+    /* Side Panel */
+    #side-panel {
+      width: 300px; flex-shrink: 0;
+      background: rgba(10,14,35,0.92);
+      border-left: 3px solid var(--accent);
+      padding: 16px; display: flex; flex-direction: column; gap: 10px;
+      overflow-y: auto; transition: border-color .5s, box-shadow .5s;
+      backdrop-filter: blur(14px); z-index: 10;
+    }
+    #char-name-ui {
+      text-align: center; font-size: 1.2rem; font-weight: 700;
+      color: var(--accent); margin-bottom: 4px;
+    }
+    #mental-state {
+      font-size: .85rem; text-align: center; padding: 10px 12px;
+      border-radius: 10px; background: rgba(25,35,60,0.8);
+      border: 2px solid var(--accent); line-height: 1.65;
+      transition: border-color .5s;
+    }
+    .stat-card {
+      background: rgba(25,35,60,0.55); padding: 10px 12px;
+      border-radius: 10px; border-right: 4px solid #334155;
+      transition: border-color .3s;
+    }
+    .stat-card .slabel { font-size: .72rem; opacity: .7; margin-bottom: 2px; }
+    .stat-card .svalue { font-size: 1.15rem; font-weight: 700; }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    #total-score-val { font-size: 2rem !important; font-weight: 800 !important; }
+
+    /* Camera viewport */
+    #cam-viewport { flex: 1; position: relative; background: #000; overflow: hidden; }
+    #output_canvas {
+      width: 100%; height: 100%;
+      transform: scaleX(-1);
+      object-fit: cover;
+      transition: filter .5s;
+    }
+    video { display: none; }
+
+    /* Calibration overlay */
+    #cal-overlay {
+      position: absolute; inset: 0; z-index: 50;
+      background: rgba(4,6,20,0.88); backdrop-filter: blur(6px);
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center; gap: 18px;
+      text-align: center;
+    }
+    #cal-overlay h2 { font-size: 1.8rem; }
+    #cal-overlay p  { font-size: 1rem; opacity: .82; }
+    #cal-bar-wrap { width: 240px; height: 8px; background: rgba(255,255,255,0.14); border-radius: 10px; overflow: hidden; }
+    #cal-bar-fill { height: 100%; width: 0%; border-radius: 10px; transition: width .1s linear; }
+
+    /* Sleep overlay */
+    #sleep-overlay {
+      position: absolute; inset: 0; z-index: 60;
+      background: rgba(4,6,20,0.94); backdrop-filter: blur(14px);
+      display: none; flex-direction: column;
+      justify-content: center; align-items: center; gap: 14px;
+      text-align: center;
+    }
+    #sleep-overlay h2 { font-size: 2.2rem; }
+    #sleep-overlay p  { font-size: 1.1rem; opacity: .85; max-width: 340px; line-height: 1.6; }
+    #sleep-overlay button {
+      padding: 12px 36px; border: none; border-radius: 12px;
+      color: white; font-size: 1rem; cursor: pointer;
+      font-family: 'Cairo', sans-serif; transition: all .2s;
+      background: var(--accent);
+    }
+    #sleep-overlay button:hover { opacity: .85; transform: scale(1.04); }
+
+    /* Camera error */
+    #cam-error {
+      position: absolute; inset: 0; z-index: 55;
+      background: rgba(4,6,20,0.92);
+      display: none; flex-direction: column;
+      justify-content: center; align-items: center; gap: 14px;
+      text-align: center; padding: 24px;
+    }
+    #cam-error h3 { font-size: 1.3rem; color: #f87171; }
+    #cam-error p  { font-size: .88rem; opacity: .75; max-width: 300px; line-height: 1.6; }
+    #cam-error button {
+      padding: 12px 36px; border: none; border-radius: 12px;
+      color: white; font-size: 1rem; cursor: pointer;
+      font-family: 'Cairo', sans-serif;
+      background: var(--accent); transition: all .2s;
+    }
+    #cam-error button:hover { opacity: .85; transform: scale(1.04); }
+
+    /* Character popup */
+    #char-popup {
+      position: absolute; bottom: 28px; right: 316px;
+      width: 300px; border-radius: 16px; padding: 18px;
+      border: 2px solid var(--accent);
+      background: rgba(10,14,35,0.95);
+      display: none; z-index: 110;
+      animation: slideUp .45s ease-out;
+    }
+    #char-popup .pop-name { font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
+    #char-popup .pop-msg  { font-size: .88rem; line-height: 1.6; opacity: .9; }
+
+    /* Session end card */
+    #session-end {
+      position: absolute; inset: 0; z-index: 70;
+      background: rgba(4,6,20,0.96); backdrop-filter: blur(16px);
+      display: none; flex-direction: column;
+      justify-content: center; align-items: center; gap: 16px;
+      text-align: center; padding: 24px;
+    }
+    #session-end h2 { font-size: 1.8rem; }
+    #session-end .final-score-big { font-size: 3.5rem; font-weight: 800; }
+    #session-end button {
+      padding: 12px 36px; border: none; border-radius: 12px;
+      color: white; font-size: 1rem; cursor: pointer;
+      font-family: 'Cairo', sans-serif;
+      background: var(--accent); transition: all .2s; margin-top: 8px;
+    }
+    #session-end button:hover { opacity: .85; transform: scale(1.04); }
+
+    /* Floating particles */
+    .particle {
+      position: fixed; pointer-events: none;
+      font-size: 1.3rem; z-index: 300;
+      animation: particle-float linear both;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     LOFI BACKGROUND
+══════════════════════════════════════════ -->
+<div id="lofi-bg"></div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 1 — CONSENT
+══════════════════════════════════════════ -->
+<div id="screen-consent" class="screen active">
+  <div class="glass-card consent-card">
+    <div class="lang-toggle">
+      <button class="lang-btn active" id="cons-ar" onclick="setConsentLang('ar')">عر</button>
+      <button class="lang-btn" id="cons-en" onclick="setConsentLang('en')">EN</button>
+    </div>
+    <div style="text-align:center;margin-bottom:1.2rem;">
+      <div style="font-size:2.2rem;margin-bottom:.3rem;">🌸</div>
+      <h1 id="cons-title">مرحباً بك في آية التعليمية</h1>
+      <p class="subtitle" id="cons-sub">قبل أن نبدأ رحلتك، يرجى مراجعة شروطنا والموافقة عليها.</p>
+    </div>
+    <div class="policy-section">
+      <div class="ptitle" id="cons-p1t">📊 البيانات والخصوصية</div>
+      <p id="cons-p1">يستخدم هذا التطبيق تقنية تحليل الوجه لتخصيص تجربة تعلمك. تتم معالجة صورة الكاميرا محلياً ولا يتم تخزينها أو إرسالها أبداً.</p>
+    </div>
+    <div class="policy-section">
+      <div class="ptitle" id="cons-p2t">📋 شروط الاستخدام</div>
+      <p id="cons-p2">باستخدام هذه المنصة، توافق على استخدامها للأغراض التعليمية. تقييم الشخصية للإرشاد فقط ولا يشكل تقييماً نفسياً مهنياً.</p>
+    </div>
+    <div class="policy-section">
+      <div class="ptitle" id="cons-p3t">🍪 ملفات الجلسة</div>
+      <p id="cons-p3">نستخدم بيانات الجلسة لتذكر تفضيلاتك. لا يتم جمع أي بيانات شخصية أو مشاركتها مع أطراف ثالثة.</p>
+    </div>
+    <div class="policy-section">
+      <div class="ptitle" id="cons-p4t">🔞 متطلب العمر</div>
+      <p id="cons-p4">هذه المنصة مصممة للمستخدمين من عمر 13 سنة فأكثر.</p>
+    </div>
+    <div style="margin-top:1rem;">
+      <div class="checkbox-row" onclick="toggleCheck('c1')">
+        <div class="checkbox-box" id="box-c1"></div>
+        <span id="cons-c1">لقد قرأت وأوافق على شروط الاستخدام وسياسة الخصوصية</span>
+      </div>
+      <div class="checkbox-row" onclick="toggleCheck('c2')">
+        <div class="checkbox-box" id="box-c2"></div>
+        <span id="cons-c2">أوافق على استخدام بيانات الجلسة لتخصيص تجربتي</span>
+      </div>
+      <div class="checkbox-row" onclick="toggleCheck('c3')">
+        <div class="checkbox-box" id="box-c3"></div>
+        <span id="cons-c3">أؤكد أنني أبلغ من العمر 13 عاماً أو أكثر</span>
+      </div>
+    </div>
+    <div class="consent-btns">
+      <button class="btn-accept" id="btn-accept" disabled onclick="acceptConsent()" id="cons-btn">قبول والمتابعة</button>
+      <button class="btn-decline" onclick="declineConsent()" id="cons-decline">رفض</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 2 — LANGUAGE
+══════════════════════════════════════════ -->
+<div id="screen-language" class="screen">
+  <div class="logo-area">
+    <div style="font-size:3.5rem;filter:drop-shadow(0 0 24px rgba(220,100,150,0.5));">🌸</div>
+    <div style="font-size:1.8rem;font-weight:800;color:hsl(330,65%,75%);margin:.2rem 0;">آية التعليمية</div>
+    <div class="tagline">WHERE YOUR FOCUS BLOOMS</div>
+  </div>
+  <div class="glass-card lang-card">
+    <h2>SELECT LANGUAGE</h2>
+    <h3>اختر اللغة</h3>
+    <button class="lang-option-btn pink" onclick="selectLang('ar')">
+      <span style="font-size:1.3rem;">🇸🇦</span>
+      <span>العربية</span>
+    </button>
+    <button class="lang-option-btn orange" onclick="selectLang('en')">
+      <span style="font-size:1.3rem;">🇺🇸</span>
+      <span>ENGLISH</span>
+    </button>
+  </div>
+  <div style="font-size:.65rem;letter-spacing:.1em;color:var(--text-dim);">AYLA EDUCATIONAL v1.0 — 2025</div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 3 — NAME
+══════════════════════════════════════════ -->
+<div id="screen-name" class="screen">
+  <div style="font-size:4rem;filter:drop-shadow(0 0 14px rgba(220,100,150,0.5));">🌸</div>
+  <div class="glass-card name-card">
+    <div class="step-label" id="name-step-label">STEP 2</div>
+    <div class="name-prompt" id="name-prompt">ما اسمك يا مغامر؟<span id="name-cursor" style="color:hsl(330,65%,65%);animation:blink 1s step-end infinite;">█</span></div>
+    <input class="pixel-input" id="name-input" type="text" maxlength="30"
+      placeholder="اسمك هنا..." autocomplete="off"
+      oninput="onNameInput()" onkeydown="if(event.key==='Enter')submitName()">
+    <div class="char-count" id="name-charcount">0/30</div>
+    <button class="btn-start" id="btn-name-go" disabled onclick="submitName()" id="name-btn">ابدأ رحلتك ▶</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 4 — WELCOME TRANSITION
+══════════════════════════════════════════ -->
+<div id="screen-welcome" class="screen">
+  <div style="font-size:3.5rem;animation:float 5s ease-in-out infinite;filter:drop-shadow(0 0 24px rgba(220,100,150,0.5));">🌸</div>
+  <div id="welcome-phase-1">
+    <div class="glass-card welcome-card">
+      <div class="greet" id="wel-greet">WELCOME ABOARD</div>
+      <div style="font-size:1.1rem;color:hsl(38,75%,70%);margin-bottom:.3rem;" id="wel-text">أهلاً،</div>
+      <div class="welcome-name" id="wel-name">—</div>
+      <div class="decoration">🌸 ✨ 🍁</div>
+    </div>
+  </div>
+  <div id="welcome-phase-2" style="display:none;width:100%;max-width:380px;">
+    <div class="glass-card loading-card">
+      <div class="loading-label" id="wel-loading-label">INITIALIZING...</div>
+      <div class="progress-bar"><div class="progress-fill" id="wel-progress" style="width:0%"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:1rem;font-size:.82rem;">
+        <span id="wel-prog-label" style="color:rgba(220,100,150,0.7);">PROGRESS</span>
+        <span id="wel-prog-pct" style="color:hsl(330,65%,70%);">0%</span>
+      </div>
+      <div id="wel-steps"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 5 — QUIZ
+══════════════════════════════════════════ -->
+<div id="screen-quiz" class="screen">
+  <div class="quiz-header">
+    <div class="quiz-logo-area">
+      <div style="font-size:1.8rem;">🌸</div>
+      <div>
+        <div class="brand">AYLA EDUCATIONAL</div>
+        <div class="user-name-display" id="quiz-user-name">—</div>
+      </div>
+    </div>
+    <div class="glass-card q-counter">
+      <div class="q-label" id="q-label">السؤال</div>
+      <div class="q-num" id="q-num">01 / 08</div>
+    </div>
+  </div>
+  <div class="quiz-progress-wrap">
+    <div class="progress-bar" style="height:10px;"><div class="progress-fill" id="quiz-progress-fill" style="width:0%"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:.65rem;">
+      <span id="quiz-title-label" style="color:var(--text-dim);">PERSONALITY TEST</span>
+      <span id="quiz-pct" style="color:rgba(220,100,150,0.7);">0%</span>
+    </div>
+  </div>
+  <div class="glass-card quiz-card">
+    <div style="display:flex;align-items:center;margin-bottom:.8rem;">
+      <div class="quiz-divider"></div>
+      <div class="q-badge"><span id="q-badge-num">Q1</span></div>
+    </div>
+    <div class="q-text" id="q-text">—</div>
+    <div id="options-container"></div>
+    <div class="quiz-nav">
+      <button class="btn-prev" id="btn-prev" onclick="prevQ()" disabled id="prev-btn">◀ <span id="prev-label">السابق</span></button>
+      <button class="btn-next" id="btn-next" onclick="nextQ()" disabled>
+        <span id="next-label">التالي</span> ▶
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 6 — ANALYZING
+══════════════════════════════════════════ -->
+<div id="screen-analyzing" class="screen">
+  <div class="glass-card analyzing-card">
+    <div class="spinner" id="analyze-spinner"></div>
+    <div class="analyze-title" id="analyze-title">جارٍ تحليل إجاباتك...</div>
+    <div class="analyze-bar-wrap">
+      <div class="analyze-bar-bg"><div class="analyze-bar-fill" id="a-bar" style="width:0%;background:var(--accent);"></div></div>
+    </div>
+    <div class="analyze-pct" id="a-pct" style="color:var(--accent);">0%</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 7 — CHARACTER REVEAL
+══════════════════════════════════════════ -->
+<div id="screen-reveal" class="screen">
+  <div class="reveal-header">
+    <div class="reveal-label" id="rv-label" style="color:rgba(200,100,130,0.8);">✦ رفيقكَ الدراسي ✦</div>
+    <div class="reveal-intro" id="rv-intro">—</div>
+  </div>
+  <div class="glass-card char-card" id="char-card">
+    <div class="char-img-wrap">
+      <img id="char-img" class="char-img" src="" alt="">
+    </div>
+    <div class="char-name">
+      <h2 id="char-name-rv">—</h2>
+      <div class="char-title" id="char-title-rv">—</div>
+    </div>
+    <div class="divider">
+      <div class="divider-line" id="div-line-r" style="background:linear-gradient(90deg,transparent,rgba(200,100,130,0.4));"></div>
+      <div class="divider-diamond" id="div-diam" style="background:var(--accent);"></div>
+      <div class="divider-line" id="div-line-l" style="background:linear-gradient(90deg,rgba(200,100,130,0.4),transparent);"></div>
+    </div>
+    <div class="char-desc" id="char-desc-rv">—</div>
+    <div class="voice-note glass-card" id="voice-note-rv">
+      <span>🎧</span>
+      <span id="voice-note-text">—</span>
+    </div>
+    <div class="char-msg-box" id="char-msg-box">
+      <div class="char-msg" id="char-msg-rv">—</div>
+    </div>
+    <div class="score-section glass-card" id="score-section">
+      <div class="section-label" id="compat-label" style="color:rgba(200,100,130,0.8);">◈ ملف التوافق</div>
+      <div id="score-bars"></div>
+    </div>
+    <div class="reco-section glass-card" id="reco-section">
+      <div class="section-label" id="reco-label" style="color:rgba(200,100,130,0.8);">◈ خطتكَ الدراسية</div>
+      <div id="reco-list"></div>
+    </div>
+    <button class="btn-proceed" id="btn-proceed" onclick="startDashboard()">
+      🎯 <span id="proceed-label">ابدأ جلسة التعلم الذكية</span>
+    </button>
+    <button class="btn-restart" onclick="restartAll()" id="restart-btn">↺ البدء من جديد</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 8 — DASHBOARD (Face Analysis)
+══════════════════════════════════════════ -->
+<div id="screen-dashboard">
+
+  <!-- Side Panel -->
+  <aside id="side-panel">
+    <h2 id="char-name-ui">المساعد الذكي</h2>
+    <div id="mental-state">جارٍ التحليل...</div>
+
+    <div class="stat-card">
+      <div class="slabel">رصيد الأداء التراكمي</div>
+      <div id="total-score-val" class="svalue" style="color:var(--accent);">0</div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card"><div class="slabel">فهم 👁️</div><div id="blink-val" class="svalue">0</div></div>
+      <div class="stat-card"><div class="slabel">تحدث 🗣️</div><div id="talk-val" class="svalue">0</div></div>
+      <div class="stat-card"><div class="slabel">تعجب 😲</div><div id="surprise-val" class="svalue">0</div></div>
+      <div class="stat-card"><div class="slabel">تثاؤب 🥱</div><div id="fatigue-val" class="svalue">0</div></div>
+    </div>
+
+    <div class="stat-card"><div class="slabel">الحواجب</div><div id="brow-val" class="svalue">طبيعي</div></div>
+    <div class="stat-card"><div class="slabel">حالة الفم</div><div id="mouth-val" class="svalue">صامت</div></div>
+
+    <div style="margin-top:auto;padding-top:10px;">
+      <button onclick="endSession()" style="width:100%;padding:10px;background:rgba(220,80,80,0.18);border:1px solid rgba(220,80,80,0.35);color:rgba(220,140,140,0.85);border-radius:8px;cursor:pointer;font-family:'Cairo',sans-serif;font-size:.82rem;transition:all .2s;"
+        onmouseover="this.style.background='rgba(220,80,80,0.3)'" onmouseout="this.style.background='rgba(220,80,80,0.18)'">
+        إنهاء الجلسة ✓
+      </button>
+    </div>
+  </aside>
+
+  <!-- Camera viewport -->
+  <main id="cam-viewport">
+    <video id="input_video" playsinline></video>
+    <canvas id="output_canvas"></canvas>
+
+    <!-- Calibration overlay -->
+    <div id="cal-overlay">
+      <h2 id="cal-title">📷 ثبّت وجهك!</h2>
+      <p id="cal-desc">انظر للكاميرا بشكل طبيعي، لا تبتسم ولا تعبّس...</p>
+      <div id="cal-bar-wrap"><div id="cal-bar-fill" style="background:var(--accent);"></div></div>
+      <p id="cal-status">جاري التحضير...</p>
+    </div>
+
+    <!-- Sleep overlay -->
+    <div id="sleep-overlay">
+      <h2>😴 انتبه! انتبه!</h2>
+      <p id="sleep-text">يبدو أنك نمت أثناء الدرس!<br>العلم لا يصبر، أكمل ما بدأته 📚</p>
+      <button onclick="dismissSleep()" id="wake-btn">أنا مستيقظ! ✋</button>
+    </div>
+
+    <!-- Camera error -->
+    <div id="cam-error">
+      <h3>⚠️ الكاميرا غير متاحة</h3>
+      <p id="cam-error-text">تأكد من منح إذن الكاميرا للمتصفح، ثم اضغط الزر أدناه</p>
+      <button onclick="retryCamera()" id="retry-cam-btn">🎥 تشغيل الكاميرا</button>
+    </div>
+
+    <!-- Session end -->
+    <div id="session-end">
+      <h2 id="end-title">انتهت جلسة التعلم!</h2>
+      <div class="final-score-big" id="final-score-display" style="color:var(--accent);">0</div>
+      <p id="end-subtitle" style="font-size:.95rem;opacity:.82;max-width:320px;line-height:1.6;">أداؤك في هذه الجلسة</p>
+      <button onclick="restartAll()">🔄 جلسة جديدة</button>
+    </div>
+
+    <!-- Character popup -->
+    <div id="char-popup">
+      <div class="pop-name" id="pop-name" style="color:var(--accent);">—</div>
+      <div class="pop-msg" id="pop-msg">—</div>
+    </div>
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCRIPT — الجزء البرمجي الكامل
+══════════════════════════════════════════ -->
+<script>
+/* ════════════════════════════════════════════
+   1. AUDIO ENGINE
+════════════════════════════════════════════ */
+let audioCtx = null;
+let masterVol = 0.45;
+
+function getACtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function playTone(freq, dur, type='square', vol=0.25, delay=0) {
+  if (masterVol === 0) return;
+  try {
+    const ctx = getACtx(), osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+    g.gain.setValueAtTime(0, ctx.currentTime + delay);
+    g.gain.linearRampToValueAtTime(vol * masterVol, ctx.currentTime + delay + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
+    osc.start(ctx.currentTime + delay);
+    osc.stop(ctx.currentTime + delay + dur + 0.01);
+  } catch(e) {}
+}
+function sndClick()      { playTone(330, 0.05, 'square', 0.2); }
+function sndEnter()      { [523,659,784].forEach((f,i) => playTone(f, 0.09, 'square', 0.25, i*0.08)); }
+function sndSelect()     { playTone(440, 0.06, 'square', 0.2); playTone(554, 0.1, 'square', 0.2, 0.06); }
+function sndTransition() { [440,554,659,880].forEach((f,i) => playTone(f, 0.06, 'square', 0.18, i*0.05)); }
+function sndSuccess()    { [523,587,659,784,880].forEach((f,i) => playTone(f, 0.12, 'square', 0.25, i*0.08)); }
+function sndMastery()    { [523,659,784].forEach((f,i) => playTone(f, 0.15, 'square', 0.12, i*0.15)); }
+function sndType()       { const f=[220,246,261,293,329]; playTone(f[Math.floor(Math.random()*f.length)], 0.08, 'square', 0.12); }
+
+/* ════════════════════════════════════════════
+   2. CHARACTER DATA (from Ayla Educational)
+════════════════════════════════════════════ */
+const CHARACTERS = {
+  thabet: {
+    key: 'thabet',
+    name:   { ar: 'ثابت',   en: 'Thabet'  },
+    title:  { ar: 'المنظِّم العقلاني', en: 'The Rational Organizer' },
+    desc: {
+      ar: 'ثابت يرى أن الدراسة معادلة رياضية تُحل بالهدوء والتركيز. لا يميل للمجاملات، لكن توجيهه مخلص في عمقه. دقيق الملاحظة، صبور، جاد ومنظم.',
+      en: 'Thabet sees studying as a mathematical equation to be solved with calm and focus. Precise, patient, serious, and organized.'
+    },
+    msg: {
+      ar: 'لا يوجد "لا أستطيع". يوجد فقط خطة لم تُحسَّن بعد. دعنا نعيد الحساب.',
+      en: 'There is no "I cannot". There is only an unoptimized plan. Let us recalculate.'
+    },
+    voice: {
+      ar: 'صوت رخيم عميق. هادئ ومتزن. كل كلمة مقصودة.',
+      en: 'Deep baritone. Calm and measured. Every word is deliberate.'
+    },
+    msgShort: {
+      ar: 'العلم معادلة منطقية، لنلتزم بالنظام والدقة.',
+      en: 'Science is logic. Let us stay organized and precise.'
+    },
+    image: '', // no image in standalone HTML — uses emoji
+    icon: '📐',
+    accent: '#48C9B0',
+    glow: 'rgba(60,190,170,0.5)',
+    frame: 'hexagon',
+    particles: ['📐','⚙️','💡','🔢','✨'],
+    scores: { concentration:2, understanding:1, confusion:-3, fatigue:-2, surprise:1, talking:1, sleep:-5 },
+    reco: {
+      ar: ['ابنِ جدولاً أسبوعياً صارماً والتزم به كعقد','استخدم طريقة بومودورو: 25 دقيقة تركيز، 5 دقائق استراحة','أنشئ قوائم مهام — فعل الشطب يبني الزخم','راجع ملاحظاتك خلال 24 ساعة من تعلمها'],
+      en: ['Build a strict weekly schedule and honor it like a contract','Use Pomodoro: 25 min focus, 5 min break','Create checklists — crossing off items builds momentum','Review notes within 24 hours of learning them']
+    }
+  },
+  kawthar: {
+    key: 'kawthar',
+    name:  { ar: 'كوثر',  en: 'Kawthar' },
+    title: { ar: 'الرفيقة العطوف', en: 'The Compassionate Companion' },
+    desc: {
+      ar: 'كوثر هي ملاذ الأمان لحظات الضغط. تمتص قلقكَ وتحوله إلى طاقة إيجابية ناعمة. تؤمن بأن النفسية المرتاحة هي أساس الفهم.',
+      en: 'Kawthar is your safe haven in moments of pressure. She absorbs your anxiety and transforms it into gentle positive energy.'
+    },
+    msg: {
+      ar: 'أنتَ تسير بشكل رائع. خذ نفساً عميقاً... أنا هنا، وسنتجاوز هذا معاً.',
+      en: 'You are doing just fine. Take a deep breath... I am right here, and together we will get through this.'
+    },
+    voice: {
+      ar: 'ناعمة ودافئة. إيقاع بطيء ومطمئن — كابتسامة تسمعها.',
+      en: 'Velvety and warm. Slow, reassuring pace — like a smile you can hear.'
+    },
+    msgShort: {
+      ar: 'لا تقلق، خذ نفساً عميقاً.. أنا هنا لنساند بعضنا.',
+      en: "Don't worry, take a deep breath. I am here to support you."
+    },
+    image: '', icon: '🌸',
+    accent: '#C96482',
+    glow: 'rgba(200,100,130,0.5)',
+    frame: 'rounded',
+    particles: ['🌸','💗','✨','🌷','💫'],
+    scores: { concentration:1, understanding:2, confusion:0, fatigue:0, surprise:2, talking:1, sleep:-2 },
+    reco: {
+      ar: ['هيّئ زاوية دراسة مريحة تشعركَ بالأمان والترحيب','ابدأ كل جلسة بدقيقتين من التنفس العميق','احتفل بالانتصارات الصغيرة — كل مهمة منجزة تستحق التقدير','ادرس في كتل قصيرة مريحة، لا ماراثونات طويلة مُنهِكة'],
+      en: ['Set up a cozy study corner that feels safe','Start each session with 2 minutes of deep breathing','Celebrate small wins — every completed task deserves acknowledgment','Study in short comfortable blocks, not long draining marathons']
+    }
+  },
+  malak: {
+    key: 'malak',
+    name:  { ar: 'ملك',  en: 'Malak' },
+    title: { ar: 'المرشدة الحكيمة', en: 'The Wise Guide' },
+    desc: {
+      ar: 'ملك هي الحضور الوقور خلف الدروس. تزرع فيكَ الثقة بالنفس عبر الحكمة وليس العاطفة فقط. كلامها قليل لكن تأثيره باقٍ.',
+      en: 'Malak is the dignified presence behind lessons. She plants confidence through wisdom. Her words are few but lasting.'
+    },
+    msg: {
+      ar: 'من يصبر على نفسه اليوم، سيفخر بها غداً. الحكمة لا تأتي في عجلة.',
+      en: 'The one who is patient with themselves today will be proud of themselves tomorrow. Wisdom does not come in a hurry.'
+    },
+    voice: {
+      ar: 'عميقة وواثقة مع بحّة خفيفة. بطء مدروس وصمت ذكي بين الجمل.',
+      en: 'Deep and confident with a slight huskiness. Slow, deliberate pauses between sentences.'
+    },
+    msgShort: {
+      ar: 'الحكمة في الرزانة، والجوهر يكمن في عمق الاستيعاب.',
+      en: 'Wisdom lies in composure. The essence is in deep understanding.'
+    },
+    image: '', icon: '🎙️',
+    accent: '#7B2D3E',
+    glow: 'rgba(180,50,70,0.5)',
+    frame: 'portrait',
+    particles: ['🎙️','📖','🌙','⭐','💫'],
+    scores: { concentration:1, understanding:5, confusion:-1, fatigue:-1, surprise:2, talking:1, sleep:-3 },
+    reco: {
+      ar: ['لا تحفظ فقط — افهم "لماذا" خلف كل مفهوم','احتفظ بمجلة تأملية: اكتب ما يعنيه كل درس لكَ','ابحث عن الارتباط بين المواضيع — الحكمة تسكن في التقاطع','امنح نفسكَ الصمت بعد التعلم — دع الأفكار تستقر'],
+      en: ['Do not just memorize — understand the "why" behind every concept','Keep a reflection journal: write what each lesson means to you','Seek the connection between subjects — wisdom lives in the overlap','Allow yourself silence after learning — let ideas settle and deepen']
+    }
+  },
+  mohamed: {
+    key: 'mohamed',
+    name:  { ar: 'محمد',   en: 'Mohamed' },
+    title: { ar: 'المحفِّز الجريء', en: 'The Bold Motivator' },
+    desc: {
+      ar: 'محمد هو طاقة كوتش الجيم داخل قاعة الدراسة. جريء، متفائل، ودائماً يدفع للحد الأقصى. يحوّل الملل إلى تحدٍّ والإرهاق إلى انتصار.',
+      en: 'Mohamed is the gym coach energy brought into study. Brave, optimistic and always pushing the limit. He turns boredom into challenge.'
+    },
+    msg: {
+      ar: 'الألم مؤقت. علامتكَ دائمة. ادفع أكثر — أنت تكاد تصل!',
+      en: 'Pain is temporary. Your score is permanent. Push harder — you are almost there!'
+    },
+    voice: {
+      ar: 'طاقة عالية ومتحمسة. إيقاع سريع مع لحظات من الشدة. صوت عالٍ ومباشر.',
+      en: 'High energy, upbeat. Fast pace with bursts of intensity. Loud, direct and full of fire.'
+    },
+    msgShort: {
+      ar: 'أنت بطل! التحدي هو وقود النجاح، سحقاً للصعاب!',
+      en: 'You are a champion! Challenge is the fuel of success!'
+    },
+    image: '', icon: '💪',
+    accent: '#3498DB',
+    glow: 'rgba(50,130,220,0.5)',
+    frame: 'square',
+    particles: ['💪','⚡','🔥','🏆','⭐'],
+    scores: { concentration:3, understanding:2, confusion:-1, fatigue:-5, surprise:1, talking:2, sleep:-10 },
+    reco: {
+      ar: ['حوّل أهدافكَ الدراسية إلى تحديات بمواعيد نهائية ومكافآت','استخدم الاسترجاع النشط — اختبر نفسكَ بقوة، لا تعيد القراءة فقط','تنافس مع نفسكَ: تفوّق على نتيجة أمس كل يوم','حوّل توترات ما قبل الامتحان إلى وقود — هذا التوتر هو قوتكَ'],
+      en: ['Turn study goals into challenges with deadlines and rewards','Use active recall — test yourself aggressively, do not just re-read','Compete with yourself: beat yesterday\'s score every single day','Channel pre-exam nerves as fuel — that tension is your power']
+    }
+  }
+};
+
+/* ════════════════════════════════════════════
+   3. QUIZ DATA (8 Questions)
+════════════════════════════════════════════ */
+const QUIZ_QUESTIONS = [
+  {
+    q: { ar:'عندما تواجه مشكلة صعبة لا تجد لها حلاً، ماذا تفعل؟', en:'When you face a difficult problem you cannot solve, you:' },
+    opts: [
+      { ar:'أقسّمها إلى خطوات صغيرة وأحلها بمنهجية', en:'Break it into smaller steps and solve it methodically', s:{thabet:4,kawthar:0,malak:1,mohamed:0} },
+      { ar:'آخذ استراحة، أهدّئ نفسي، ثم أعود إليها',   en:'Take a break, calm down, then come back to it',            s:{thabet:0,kawthar:4,malak:1,mohamed:0} },
+      { ar:'أجلس معها بهدوء حتى تتضح لي الصورة الأعمق', en:'Sit quietly until the deeper pattern reveals itself',       s:{thabet:1,kawthar:0,malak:4,mohamed:0} },
+      { ar:'أهجم عليها مباشرة وأجرب كل زاوية حتى تنكسر',en:'Attack head-on and try every angle until it breaks',        s:{thabet:0,kawthar:0,malak:0,mohamed:4} }
+    ]
+  },
+  {
+    q: { ar:'كيف تبدو لكَ جلسة الدراسة المثالية؟', en:'What does a perfect study session look like to you?' },
+    opts: [
+      { ar:'صمت تام مع جدول منظم ولا مشتتات إطلاقاً', en:'Completely silent with a structured schedule, no distractions', s:{thabet:4,kawthar:0,malak:1,mohamed:0} },
+      { ar:'جو مريح مع إضاءة هادئة ومشروب دافئ وموسيقى خفيفة', en:'Cozy atmosphere with soft light, warm drink, and gentle music', s:{thabet:0,kawthar:4,malak:1,mohamed:0} },
+      { ar:'تركيز عميق مع وقت للتأمل وفهم الصورة الكبيرة', en:'Deep focus with time to reflect and make sense of the bigger picture', s:{thabet:1,kawthar:0,malak:4,mohamed:0} },
+      { ar:'جلسات مكثفة قصيرة مع أهداف واضحة ومؤقتات وانتصارات سريعة', en:'Short intense sessions with clear targets, timers, and quick wins', s:{thabet:0,kawthar:0,malak:0,mohamed:4} }
+    ]
+  },
+  {
+    q: { ar:'بعد الفشل في اختبار، أول شيء تفكر فيه هو:', en:'After failing a test, your first instinct is to:' },
+    opts: [
+      { ar:'تحليل ما الذي حدث بالضبط وبناء خطة تصحيح', en:'Analyze exactly what went wrong and build a correction plan', s:{thabet:4,kawthar:0,malak:1,mohamed:0} },
+      { ar:'السماح لنفسي بالشعور، ثم البحث عن دعم للمضي قدماً', en:'Allow yourself to feel it, then find support to move forward', s:{thabet:0,kawthar:4,malak:0,mohamed:0} },
+      { ar:'التأمل العميق في الدرس الذي تعلمه هذه التجربة', en:'Reflect deeply on the lesson this experience is teaching you', s:{thabet:0,kawthar:0,malak:4,mohamed:1} },
+      { ar:'أغضب، ثم أحول هذه الطاقة للعودة أقوى', en:'Get angry, then channel that energy to come back stronger', s:{thabet:0,kawthar:0,malak:0,mohamed:4} }
+    ]
+  },
+  {
+    q: { ar:'ما الذي يحفزكَ أكثر عندما تشعر بالرغبة في الاستسلام؟', en:'What motivates you most when you feel like giving up?' },
+    opts: [
+      { ar:'النظر إلى مخطط تقدمي ورؤية دليل موضوعي على النمو', en:'Looking at your progress chart and seeing objective evidence of growth', s:{thabet:4,kawthar:0,malak:1,mohamed:0} },
+      { ar:'تذكير لطيف بأنني كافٍ وأن الصراع جزء طبيعي', en:'A gentle reminder that you are enough and it is okay to struggle', s:{thabet:0,kawthar:4,malak:1,mohamed:0} },
+      { ar:'منظور حكيم يضع الأمور في حجمها الحقيقي', en:'A wise perspective that puts things in their true proportion', s:{thabet:0,kawthar:0,malak:4,mohamed:0} },
+      { ar:'تحدٍّ صريح: "أثبت العكس — أنتَ بطل!"', en:'A loud challenge: "Prove them wrong — you are a champion!"', s:{thabet:0,kawthar:0,malak:0,mohamed:4} }
+    ]
+  },
+  {
+    q: { ar:'أي بيئة تستنزف طاقتكَ أكثر؟', en:'Which environment drains your energy the most?' },
+    opts: [
+      { ar:'الفوضى، عدم النظام، والتغييرات غير المتوقعة في الخطة', en:'Chaos, disorder, and unpredictable changes to the plan', s:{thabet:4,kawthar:1,malak:0,mohamed:0} },
+      { ar:'الأجواء الباردة والمتجردة عاطفياً', en:'Cold, distant, or emotionally disconnected atmospheres', s:{thabet:0,kawthar:4,malak:0,mohamed:0} },
+      { ar:'الكلام السطحي الذي لا عمق فيه ولا معنى', en:'Surface-level talk with no depth or meaning', s:{thabet:0,kawthar:0,malak:4,mohamed:0} },
+      { ar:'الركود والسلبية — لا حركة ولا تحدٍّ ولا نار', en:'Stillness and passivity — no action, no challenge, no fire', s:{thabet:0,kawthar:0,malak:0,mohamed:4} }
+    ]
+  },
+  {
+    q: { ar:'كيف يصفكَ أصدقاؤكَ في الغالب؟', en:'How do your friends most often describe you?' },
+    opts: [
+      { ar:'موثوق، دقيق، والشخص الذي دائماً لديه خطة', en:'Reliable, precise, and the one who always has a plan', s:{thabet:4,kawthar:0,malak:1,mohamed:0} },
+      { ar:'دافئ، داعم، ودائماً موجود للاستماع', en:'Warm, supportive, and always there to listen', s:{thabet:0,kawthar:4,malak:1,mohamed:0} },
+      { ar:'متأمل، رزين، وشخص كلامه يحمل ثقلاً حقيقياً', en:'Thoughtful, composed, and someone whose words carry real weight', s:{thabet:0,kawthar:0,malak:4,mohamed:0} },
+      { ar:'نشيط، جريء، والشخص الذي يُحيي أي موقف', en:'Energetic, bold, and the one who brings life to any situation', s:{thabet:0,kawthar:0,malak:0,mohamed:4} }
+    ]
+  },
+  {
+    q: { ar:'عندما يكون لديكَ وقت حر، تجد نفسكَ تفضل:', en:'When you have free time, you most naturally:' },
+    opts: [
+      { ar:'تخطط لخطواتك القادمة وتنظم نظامكَ', en:'Plan your next steps and organize your system', s:{thabet:4,kawthar:0,malak:1,mohamed:0} },
+      { ar:'تستريح وتشحن طاقتكَ في بيئة مريحة', en:'Rest, recharge, and spend time in a comfortable environment', s:{thabet:0,kawthar:4,malak:0,mohamed:0} },
+      { ar:'تقرأ أو تتأمل بعمق في مواضيع تأسركَ', en:'Read or reflect deeply on topics that fascinate you', s:{thabet:1,kawthar:0,malak:4,mohamed:0} },
+      { ar:'تتحرك، تمارس رياضة، تتنافس، أو تتحدى نفسكَ', en:'Move, exercise, compete, or challenge yourself physically', s:{thabet:0,kawthar:0,malak:0,mohamed:4} }
+    ]
+  },
+  {
+    q: { ar:'ما الذي تحتاجه أكثر من رفيق الدراسة؟', en:'What do you need most from a study companion?' },
+    opts: [
+      { ar:'استراتيجيات واضحة، تغذية راجعة صادقة، وصفر تسامح مع الأعذار', en:'Clear strategies, honest feedback, and zero tolerance for excuses', s:{thabet:4,kawthar:0,malak:0,mohamed:1} },
+      { ar:'تعاطف، صبر، وشخص لا يحكم عليكَ أبداً', en:'Compassion, patience, and someone who never judges you', s:{thabet:0,kawthar:4,malak:1,mohamed:0} },
+      { ar:'بصيرة عميقة، معنى، وحكمة تعود إليها مراراً وتكراراً', en:'Deep insight, meaning, and wisdom you can return to repeatedly', s:{thabet:1,kawthar:0,malak:4,mohamed:0} },
+      { ar:'طاقة لا تتوقف، نار، وشخص لن يترككَ تستقر على راحتكَ', en:'Relentless energy, fire, and someone who will not let you settle', s:{thabet:0,kawthar:0,malak:0,mohamed:4} }
+    ]
+  }
+];
+
+/* ════════════════════════════════════════════
+   4. APP STATE
+════════════════════════════════════════════ */
+const state = {
+  lang: 'ar',
+  dir: 'rtl',
+  userName: '',
+  answers: {},
+  currentQ: 0,
+  resultChar: null,
+  resultScores: {},
+  checks: { c1:false, c2:false, c3:false }
+};
+
+/* ════════════════════════════════════════════
+   5. FACE ANALYSIS STATE
+════════════════════════════════════════════ */
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+let faceRes = null, cameraInstance = null;
+let totalScore = 0, blinks = 0, isClosed = false;
+let mouthOpenStart = 0, blinkStart = 0, sleepStart = 0;
+let lastTalkTime = 0, lastRecalTime = Date.now();
+let lastCharSwitch = Date.now(), lastReport = Date.now(), lastModeCheck = Date.now();
+const ACTION_CD = 15000;
+let lastAction = { concentration:0, confusion:0, surprise:0, fatigue:0, understanding:0 };
+let isSleeping = false, sleepScored = false;
+let browState = "none", browStart = 0, browScored = false, yawnScored = false;
+const DURATIONS = { concentration:2000, confusion:1500, fatigue:3000, surprise:800, sleep:5000 };
+let mouthHist = [], sessionStats = { concentration:0, confusion:0, fatigue:0, understanding:0, surprise:0, talking:0 };
+let cumStats = { understanding:0, talking:0, surprise:0, fatigue:0 };
+let baseFace = { ear:0.22, mouth:0.02, innerBrow:0.18, outerBrow:0.25, noseWrinkle:0.1 };
+let calFrames = [], isCalibrated = false, calPaused = true, calPauseEnd = 0;
+const CAL_FRAMES = 90, FREEZE_DUR = 3000;
+
+/* ════════════════════════════════════════════
+   6. RAIN BACKGROUND
+════════════════════════════════════════════ */
+(function buildRain() {
+  const bg = document.getElementById('lofi-bg');
+  for (let i = 0; i < 55; i++) {
+    const d = document.createElement('div');
+    d.className = 'rain-drop';
+    const h = 40 + Math.random() * 65;
+    d.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;height:${h}px;
+      animation-duration:${0.6+Math.random()*0.85}s;animation-delay:${Math.random()*2}s;
+      opacity:${0.12+Math.random()*0.22};`;
+    bg.appendChild(d);
+  }
+})();
+
+/* ════════════════════════════════════════════
+   7. SCREEN TRANSITIONS
+════════════════════════════════════════════ */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  if (id === 'dashboard') {
+    document.getElementById('screen-dashboard').classList.add('active');
+  } else {
+    const el = document.getElementById('screen-' + id);
+    if (el) el.classList.add('active');
+  }
+}
+
+/* ════════════════════════════════════════════
+   8. CONSENT SCREEN
+════════════════════════════════════════════ */
+const CONSENT_TEXT = {
+  ar: {
+    title:'مرحباً بك في آية التعليمية', sub:'قبل أن نبدأ رحلتك، يرجى مراجعة شروطنا والموافقة عليها.',
+    p1t:'📊 البيانات والخصوصية', p1:'يستخدم هذا التطبيق تقنية تحليل الوجه لتخصيص تجربة تعلمك. تتم معالجة صورة الكاميرا محلياً ولا يتم تخزينها أو إرسالها أبداً.',
+    p2t:'📋 شروط الاستخدام', p2:'باستخدام هذه المنصة، توافق على استخدامها للأغراض التعليمية. تقييم الشخصية للإرشاد فقط.',
+    p3t:'🍪 ملفات الجلسة', p3:'نستخدم بيانات الجلسة لتذكر تفضيلاتك. لا يتم جمع أي بيانات شخصية.',
+    p4t:'🔞 متطلب العمر', p4:'هذه المنصة مصممة للمستخدمين من عمر 13 سنة فأكثر.',
+    c1:'لقد قرأت وأوافق على شروط الاستخدام وسياسة الخصوصية',
+    c2:'أوافق على استخدام بيانات الجلسة لتخصيص تجربتي',
+    c3:'أؤكد أنني أبلغ من العمر 13 عاماً أو أكثر',
+    btn:'قبول والمتابعة', decline:'رفض'
+  },
+  en: {
+    title:'Welcome to Ayla Educational', sub:'Before we begin your journey, please review and accept our terms.',
+    p1t:'📊 Data & Privacy', p1:'This application uses facial analysis technology to personalize your learning. Your camera feed is processed locally and never stored or transmitted.',
+    p2t:'📋 Terms of Use', p2:'By using this platform, you agree to use it for educational purposes. The personality assessment is for guidance only.',
+    p3t:'🍪 Session Data', p3:'We use session data to remember your preferences. No personal data is collected or shared.',
+    p4t:'🔞 Age Requirement', p4:'This platform is designed for users aged 13 and above.',
+    c1:'I have read and agree to the Terms of Use and Privacy Policy',
+    c2:'I consent to the use of session data to personalize my experience',
+    c3:'I confirm I am 13 years or older (or have parental consent)',
+    btn:'Accept & Continue', decline:'Decline'
+  }
+};
+function setConsentLang(l) {
+  sndClick();
+  state.lang = l; state.dir = l === 'ar' ? 'rtl' : 'ltr';
+  document.getElementById('screen-consent').dir = state.dir;
+  document.getElementById('cons-ar').classList.toggle('active', l === 'ar');
+  document.getElementById('cons-en').classList.toggle('active', l === 'en');
+  const t = CONSENT_TEXT[l];
+  document.getElementById('cons-title').textContent = t.title;
+  document.getElementById('cons-sub').textContent   = t.sub;
+  document.getElementById('cons-p1t').textContent   = t.p1t;
+  document.getElementById('cons-p1').textContent    = t.p1;
+  document.getElementById('cons-p2t').textContent   = t.p2t;
+  document.getElementById('cons-p2').textContent    = t.p2;
+  document.getElementById('cons-p3t').textContent   = t.p3t;
+  document.getElementById('cons-p3').textContent    = t.p3;
+  document.getElementById('cons-p4t').textContent   = t.p4t;
+  document.getElementById('cons-p4').textContent    = t.p4;
+  document.getElementById('cons-c1').textContent    = t.c1;
+  document.getElementById('cons-c2').textContent    = t.c2;
+  document.getElementById('cons-c3').textContent    = t.c3;
+  document.getElementById('btn-accept').textContent = t.btn;
+  document.getElementById('cons-decline').textContent = t.decline;
+}
+function toggleCheck(k) {
+  sndClick();
+  state.checks[k] = !state.checks[k];
+  document.getElementById('box-' + k).classList.toggle('checked', state.checks[k]);
+  const ok = state.checks.c1 && state.checks.c2 && state.checks.c3;
+  document.getElementById('btn-accept').disabled = !ok;
+}
+function acceptConsent() {
+  if (!state.checks.c1 || !state.checks.c2 || !state.checks.c3) return;
+  sndEnter();
+  showScreen('language');
+}
+function declineConsent() {
+  sndClick();
+  const l = state.lang;
+  document.getElementById('screen-consent').innerHTML = `
+    <div class="glass-card consent-card" style="text-align:center;max-width:400px;">
+      <div style="font-size:3rem;margin-bottom:.8rem;">😔</div>
+      <h2 style="font-size:1.4rem;color:hsl(38,75%,70%);margin-bottom:.8rem;">
+        ${l==='ar'?'نأسف لرؤيتك تغادر':'Sorry to see you go'}
+      </h2>
+      <p style="color:var(--text-dim);margin-bottom:1.5rem;font-size:.88rem;line-height:1.6;">
+        ${l==='ar'?'يجب قبول الشروط للمتابعة.':'You must accept the terms to continue.'}
+      </p>
+      <button class="btn-accept" onclick="location.reload()" style="max-width:200px;margin:0 auto;display:block;">
+        ${l==='ar'?'← العودة':'← Go Back'}
+      </button>
+    </div>`;
+}
+
+/* ════════════════════════════════════════════
+   9. LANGUAGE SCREEN
+════════════════════════════════════════════ */
+function selectLang(l) {
+  sndSelect();
+  state.lang = l; state.dir = l === 'ar' ? 'rtl' : 'ltr';
+  document.documentElement.lang = l;
+  document.documentElement.dir  = state.dir;
+  setTimeout(() => showScreen('name'), 500);
+}
+
+/* ════════════════════════════════════════════
+   10. NAME SCREEN
+════════════════════════════════════════════ */
+const NAME_TXT = {
+  ar: { step:'الخطوة 2', prompt:'ما اسمك يا مغامر؟', ph:'اسمك هنا...', hint:'اضغط ENTER للمتابعة', btn:'ابدأ رحلتك ▶' },
+  en: { step:'STEP 2',   prompt:"What's your name, adventurer?", ph:'Your name here...', hint:'Press ENTER to continue', btn:'Start Your Journey ▶' }
+};
+let nameTyping = null;
+function initNameScreen() {
+  const t = NAME_TXT[state.lang];
+  const el = document.getElementById('screen-name');
+  el.dir = state.dir;
+  document.getElementById('name-step-label').textContent = t.step;
+  document.getElementById('name-input').placeholder      = t.ph;
+  document.getElementById('btn-name-go').textContent     = t.btn;
+  document.getElementById('name-input').value = '';
+  document.getElementById('name-charcount').textContent = '0/30';
+  document.getElementById('btn-name-go').disabled = true;
+  // typewriter prompt
+  const full = t.prompt;
+  let i = 0;
+  document.getElementById('name-prompt').innerHTML = '<span id="name-cursor" style="color:hsl(330,65%,65%);animation:blink 1s step-end infinite;">█</span>';
+  clearInterval(nameTyping);
+  nameTyping = setInterval(() => {
+    if (i < full.length) {
+      document.getElementById('name-prompt').innerHTML =
+        full.slice(0, i+1) + '<span id="name-cursor" style="color:hsl(330,65%,65%);animation:blink 1s step-end infinite;">█</span>';
+      sndType(); i++;
+    } else {
+      clearInterval(nameTyping);
+      document.getElementById('name-prompt').textContent = full;
+      setTimeout(() => document.getElementById('name-input').focus(), 300);
+    }
+  }, 55);
+}
+function onNameInput() {
+  sndType();
+  const v = document.getElementById('name-input').value;
+  document.getElementById('name-charcount').textContent = v.length + '/30';
+  document.getElementById('btn-name-go').disabled = v.trim().length === 0;
+}
+function submitName() {
+  const v = document.getElementById('name-input').value.trim();
+  if (!v) return;
+  sndEnter();
+  state.userName = v;
+  showScreen('welcome');
+  startWelcome();
+}
+
+/* ════════════════════════════════════════════
+   11. WELCOME TRANSITION
+════════════════════════════════════════════ */
+const WEL_TXT = {
+  ar: { greet:'أهلاً بك', loadLabel:'جارٍ التهيئة...', progress:'التقدم', steps:['جارٍ تحليل ملامح الوجه...','رسم مسارات التعلم...','معايرة ملفك الشخصي...','جاهز!'], ready:'رحلتكَ تبدأ الآن!' },
+  en: { greet:'WELCOME ABOARD', loadLabel:'INITIALIZING...', progress:'PROGRESS', steps:['Analyzing facial geometry...','Mapping neural pathways...','Calibrating your profile...','Ready!'], ready:'Your journey begins now!' }
+};
+function startWelcome() {
+  const t = WEL_TXT[state.lang];
+  const el = document.getElementById('screen-welcome');
+  el.dir = state.dir;
+  document.getElementById('wel-greet').textContent = t.greet;
+  document.getElementById('wel-text').textContent  = state.lang === 'ar' ? 'أهلاً،' : 'Welcome,';
+  document.getElementById('wel-name').textContent  = state.userName + '!';
+  document.getElementById('welcome-phase-1').style.display = 'block';
+  document.getElementById('welcome-phase-2').style.display = 'none';
+
+  setTimeout(() => {
+    sndTransition();
+    document.getElementById('welcome-phase-1').style.display = 'none';
+    document.getElementById('welcome-phase-2').style.display = 'block';
+    document.getElementById('wel-loading-label').textContent = t.loadLabel;
+    document.getElementById('wel-prog-label').textContent = t.progress;
+
+    const stepsEl = document.getElementById('wel-steps');
+    stepsEl.innerHTML = t.steps.map((s,i)=> `
+      <div class="loading-step" style="opacity:0.3;transition:opacity .3s;" id="wstep-${i}">
+        <div class="icon" id="wstep-icon-${i}">○</div>
+        <div class="step-text" style="color:rgba(150,140,180,0.4);" id="wstep-text-${i}">${s}</div>
+      </div>`).join('');
+
+    let prog = 0, step = 0;
+    const progInt = setInterval(()=>{ prog = Math.min(prog+2, 100); document.getElementById('wel-progress').style.width = prog+'%'; document.getElementById('wel-prog-pct').textContent = prog+'%'; if (prog>=100) clearInterval(progInt); }, 22);
+    const stepInt = setInterval(()=>{
+      if (step < t.steps.length - 1) {
+        sndTransition();
+        document.getElementById('wstep-'+step).style.opacity = '1';
+        document.getElementById('wstep-icon-'+step).textContent = '✓';
+        document.getElementById('wstep-icon-'+step).style.color = 'hsl(330,65%,65%)';
+        document.getElementById('wstep-text-'+step).style.color = 'rgba(220,100,150,0.7)';
+        step++;
+        document.getElementById('wstep-'+step).style.opacity = '1';
+        document.getElementById('wstep-icon-'+step).textContent = '▶';
+        document.getElementById('wstep-icon-'+step).style.color = 'hsl(38,75%,65%)';
+        document.getElementById('wstep-text-'+step).style.color = 'hsl(38,75%,70%)';
+      } else { clearInterval(stepInt); }
+    }, 600);
+
+    setTimeout(()=>{
+      clearInterval(progInt); clearInterval(stepInt);
+      showScreen('quiz');
+      initQuiz();
+    }, 2800);
+  }, 2400);
+}
+
+/* ════════════════════════════════════════════
+   12. QUIZ ENGINE
+════════════════════════════════════════════ */
+const QUIZ_TXT = {
+  ar: { label:'السؤال', title:'اختبار الشخصية', prev:'السابق ◀', next:'التالي ▶', submit:'عرض النتائج ▶' },
+  en: { label:'Question',  title:'PERSONALITY TEST', prev:'◀ Previous', next:'Next ▶', submit:'See Results ▶' }
+};
+const OPT_COLORS = ['hsl(330,65%,65%)','hsl(25,85%,60%)','hsl(38,75%,60%)','hsl(200,60%,60%)'];
+const OPT_LETTERS = ['A','B','C','D'];
+
+function initQuiz() {
+  const el = document.getElementById('screen-quiz');
+  el.dir = state.dir;
+  document.getElementById('quiz-user-name').textContent = state.userName;
+  state.currentQ = 0;
+  state.answers = {};
+  renderQuestion();
+}
+function renderQuestion() {
+  const t = QUIZ_TXT[state.lang];
+  const i = state.currentQ;
+  const q = QUIZ_QUESTIONS[i];
+  const total = QUIZ_QUESTIONS.length;
+  const prog = (i / total) * 100;
+
+  document.getElementById('q-label').textContent       = t.label;
+  document.getElementById('q-num').textContent         = String(i+1).padStart(2,'0') + ' / ' + String(total).padStart(2,'0');
+  document.getElementById('quiz-title-label').textContent = t.title;
+  document.getElementById('q-badge-num').textContent   = 'Q' + (i+1);
+  document.getElementById('q-text').textContent        = q.q[state.lang];
+  document.getElementById('quiz-progress-fill').style.width = prog + '%';
+  document.getElementById('quiz-pct').textContent      = Math.round(prog) + '%';
+
+  const sel = state.answers[i];
+  const isLast = i === total - 1;
+  document.getElementById('btn-next').textContent = isLast ? t.submit : t.next;
+  document.getElementById('btn-next').disabled    = (sel === undefined);
+  document.getElementById('btn-prev').disabled    = (i === 0);
+  document.getElementById('prev-btn') && (document.getElementById('btn-prev').querySelector('span') || document.getElementById('btn-prev')).textContent;
+
+  const opts = document.getElementById('options-container');
+  opts.innerHTML = '';
+  q.opts.forEach((o, oi) => {
+    const isSelected = (sel === oi);
+    const c = OPT_COLORS[oi];
+    const btn = document.createElement('button');
+    btn.className = 'option-btn' + (isSelected ? ' selected' : '');
+    btn.style.cssText = isSelected ? `border:2px solid ${c} !important;background:${c}22 !important;` : '';
+    btn.innerHTML = `
+      <span class="option-letter" style="${isSelected?`background:${c}33;border-color:${c};color:${c}`:`color:rgba(180,160,140,0.6)`}">${OPT_LETTERS[oi]}</span>
+      <span style="flex:1">${o[state.lang]}</span>
+      ${isSelected ? `<span style="color:${c};">▶</span>` : ''}`;
+    btn.onclick = () => selectOption(oi);
+    opts.appendChild(btn);
+  });
+}
+function selectOption(oi) {
+  sndSelect();
+  state.answers[state.currentQ] = oi;
+  renderQuestion();
+}
+function nextQ() {
+  if (state.answers[state.currentQ] === undefined) return;
+  sndClick();
+  if (state.currentQ === QUIZ_QUESTIONS.length - 1) {
+    finishQuiz(); return;
+  }
+  state.currentQ++;
+  renderQuestion();
+}
+function prevQ() {
+  if (state.currentQ === 0) return;
+  sndClick();
+  state.currentQ--;
+  renderQuestion();
+}
+function finishQuiz() {
+  sndSuccess();
+  showScreen('analyzing');
+  // Calculate scores
+  const scores = { thabet:0, kawthar:0, malak:0, mohamed:0 };
+  QUIZ_QUESTIONS.forEach((q, i) => {
+    const oi = state.answers[i];
+    if (oi !== undefined) {
+      const s = q.opts[oi].s;
+      scores.thabet   += s.thabet;
+      scores.kawthar  += s.kawthar;
+      scores.malak    += s.malak;
+      scores.mohamed  += s.mohamed;
+    }
+  });
+  state.resultScores = scores;
+  const winner = Object.entries(scores).reduce((a,b) => a[1]>b[1]?a:b)[0];
+  state.resultChar = CHARACTERS[winner];
+
+  // Animated progress
+  let p = 0;
+  const sp = document.getElementById('a-bar');
+  const pp = document.getElementById('a-pct');
+  const c = state.resultChar.accent;
+  sp.style.background = c; pp.style.color = c;
+  document.getElementById('analyze-spinner').style.borderTopColor = c;
+  const title = state.lang === 'ar' ? 'جارٍ تحليل إجاباتك...' : 'Analyzing your responses...';
+  document.getElementById('analyze-title').textContent = title;
+
+  const iv = setInterval(()=>{
+    p = Math.min(p + 1.4, 100);
+    sp.style.width = p + '%';
+    pp.textContent = Math.round(p) + '%';
+    if (p >= 100) {
+      clearInterval(iv);
+      sndTransition();
+      setTimeout(()=>{ showScreen('reveal'); buildReveal(); spawnParticles(); }, 300);
+    }
+  }, 30);
+}
+
+/* ════════════════════════════════════════════
+   13. CHARACTER REVEAL
+════════════════════════════════════════════ */
+function buildReveal() {
+  sndSuccess();
+  const char = state.resultChar;
+  const l    = state.lang;
+  const c    = char.accent;
+
+  document.getElementById('screen-reveal').dir = state.dir;
+  document.getElementById('rv-label').style.color  = c + 'cc';
+  document.getElementById('rv-label').textContent  = l === 'ar' ? '✦ رفيقكَ الدراسي ✦' : '✦ YOUR STUDY COMPANION ✦';
+  document.getElementById('rv-intro').textContent  = l === 'ar' ? `${state.userName}، إليكَ رفيقكَ!` : `${state.userName}, meet your companion!`;
+
+  // Character card styling
+  const card = document.getElementById('char-card');
+  card.style.border     = `2px solid ${c}44`;
+  card.style.boxShadow  = `0 0 50px ${char.glow}, 0 0 90px ${char.glow.replace('0.5','0.08')}`;
+
+  // Icon (no external images needed)
+  const imgEl = document.getElementById('char-img');
+  imgEl.style.display = 'none';
+  // Replace with big emoji icon
+  let iconEl = document.getElementById('char-icon-big');
+  if (!iconEl) {
+    iconEl = document.createElement('div');
+    iconEl.id = 'char-icon-big';
+    imgEl.parentNode.insertBefore(iconEl, imgEl);
+  }
+  iconEl.style.cssText = `font-size:6rem;text-align:center;animation:float 4s ease-in-out infinite;
+    filter:drop-shadow(0 0 20px ${char.glow});margin-bottom:.5rem;`;
+  iconEl.textContent = char.icon;
+
+  document.getElementById('char-name-rv').textContent  = char.name[l];
+  document.getElementById('char-name-rv').style.color  = c;
+  document.getElementById('char-name-rv').style.textShadow = `0 0 20px ${char.glow}`;
+  document.getElementById('char-title-rv').textContent = char.title[l];
+  document.getElementById('char-title-rv').style.color = c + 'aa';
+  document.getElementById('div-diam').style.background = c;
+  document.getElementById('div-line-r').style.background = `linear-gradient(90deg,transparent,${c}44)`;
+  document.getElementById('div-line-l').style.background = `linear-gradient(90deg,${c}44,transparent)`;
+
+  document.getElementById('char-desc-rv').textContent = char.desc[l];
+
+  const vnEl = document.getElementById('voice-note-rv');
+  vnEl.style.background = 'rgba(8,6,22,0.6)';
+  vnEl.style.border     = `1px solid ${c}22`;
+  document.getElementById('voice-note-text').textContent = char.voice[l];
+  document.getElementById('voice-note-text').style.color = c + 'cc';
+
+  // Typewriter message
+  const msgBox = document.getElementById('char-msg-box');
+  msgBox.style.background = `${c}12`;
+  msgBox.style.border     = `1px solid ${c}33`;
+  const msgEl = document.getElementById('char-msg-rv');
+  msgEl.style.color = c;
+  const fullMsg = `"${char.msg[l]}"`;
+  let mi = 0;
+  msgEl.textContent = '';
+  const msgIv = setInterval(()=>{
+    if (mi < fullMsg.length) { msgEl.textContent = fullMsg.slice(0, mi+1); mi++; }
+    else clearInterval(msgIv);
+  }, 38);
+
+  // Score bars
+  const maxScore = Math.max(...Object.values(state.resultScores));
+  const SCORE_COLORS = { thabet:'hsl(175,55%,48%)', kawthar:'hsl(340,55%,60%)', malak:'hsl(350,55%,48%)', mohamed:'hsl(210,80%,58%)' };
+  const SCORE_NAMES  = { thabet:{ar:'ثابت',en:'Thabet'}, kawthar:{ar:'كوثر',en:'Kawthar'}, malak:{ar:'ملك',en:'Malak'}, mohamed:{ar:'محمد',en:'Mohamed'} };
+  const sbEl = document.getElementById('score-bars');
+  sbEl.innerHTML = '';
+  document.getElementById('compat-label').textContent = l === 'ar' ? '◈ ملف التوافق' : '◈ COMPATIBILITY PROFILE';
+  document.getElementById('score-section').style.background = 'rgba(6,5,18,0.6)';
+  document.getElementById('score-section').style.border     = `1px solid ${c}1a`;
+
+  ['thabet','kawthar','malak','mohamed'].forEach((k,idx)=>{
+    const pct = maxScore > 0 ? Math.round((state.resultScores[k] / maxScore) * 100) : 0;
+    const isW = k === char.key;
+    const sc  = SCORE_COLORS[k];
+    const row = document.createElement('div');
+    row.className = 'score-row';
+    row.style.cssText = `opacity:0;animation:fadeIn .4s ease ${idx*.12}s forwards;`;
+    row.innerHTML = `
+      <div class="score-row-top">
+        <span class="score-name" style="color:${isW?sc:'rgba(160,145,180,0.6)'};font-weight:${isW?'700':'400'}">
+          ${isW?'★ ':''}${SCORE_NAMES[k][l]}
+        </span>
+        <div class="score-bar-bg">
+          <div class="score-bar-fill" style="width:${pct}%;background:${isW?sc:sc+'44'};
+            ${isW?`box-shadow:0 0 8px ${sc}88`:''}"></div>
+        </div>
+        <span class="score-pct" style="color:${isW?sc:'rgba(140,125,165,0.5)'}">${pct}%</span>
+      </div>`;
+    sbEl.appendChild(row);
+  });
+
+  // Recommendations
+  document.getElementById('reco-label').textContent = l === 'ar' ? '◈ خطتكَ الدراسية' : '◈ YOUR STUDY BLUEPRINT';
+  document.getElementById('reco-section').style.background = 'rgba(6,5,18,0.55)';
+  document.getElementById('reco-section').style.border     = `1px solid ${c}1a`;
+  const rList = document.getElementById('reco-list');
+  rList.innerHTML = '';
+  char.reco[l].forEach((rec, ri) => {
+    const li = document.createElement('div');
+    li.className = 'reco-item';
+    li.style.cssText = `opacity:0;animation:fadeIn .4s ease ${.3+ri*.15}s forwards;`;
+    li.innerHTML = `<span class="arrow" style="color:${c}">▸</span><span>${rec}</span>`;
+    rList.appendChild(li);
+  });
+
+  // Proceed button
+  const btn = document.getElementById('btn-proceed');
+  btn.style.background  = `${c}1a`;
+  btn.style.border      = `2px solid ${c}55`;
+  btn.style.color       = c;
+  btn.style.boxShadow   = `0 0 14px ${char.glow}`;
+  document.getElementById('proceed-label').textContent = l === 'ar' ? 'ابدأ جلسة التعلم الذكية' : 'Start Your Smart Learning Session';
+  document.getElementById('restart-btn').textContent   = l === 'ar' ? '↺ البدء من جديد' : '↺ Start Again';
+}
+
+/* ════════════════════════════════════════════
+   14. PARTICLES
+════════════════════════════════════════════ */
+function spawnParticles() {
+  const char = state.resultChar;
+  if (!char) return;
+  const emojis = char.particles;
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    p.style.cssText = `left:${10+Math.random()*80}%;top:${20+Math.random()*50}%;
+      animation-duration:${3+Math.random()*3}s;animation-delay:${Math.random()*.8}s;`;
+    document.body.appendChild(p);
+    setTimeout(()=> p.remove(), 6000);
+  }
+}
+
+/* ════════════════════════════════════════════
+   15. MEDIAPIPE SETUP
+════════════════════════════════════════════ */
+let faceMesh = null;
+
+function initFaceMesh() {
+  faceMesh = new FaceMesh({
+    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
+  });
+  faceMesh.setOptions({ maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.6, minTrackingConfidence:0.6 });
+  faceMesh.onResults(res => {
+    faceRes = (res.multiFaceLandmarks?.length > 0) ? res.multiFaceLandmarks[0] : null;
+  });
+}
+
+/* ════════════════════════════════════════════
+   16. DASHBOARD INIT
+════════════════════════════════════════════ */
+function startDashboard() {
+  sndEnter();
+  showScreen('dashboard');
+  applyDashboardTheme(state.resultChar.key);
+  initFaceMesh();
+  startCalibration();
+  startCamera();
+}
+function applyDashboardTheme(key) {
+  const cfg = CHARACTERS[key];
+  document.documentElement.style.setProperty('--accent', cfg.accent);
+  const l = state.lang;
+  document.getElementById('char-name-ui').textContent = l === 'ar' ? `المرافق: ${cfg.name.ar}` : `Companion: ${cfg.name.en}`;
+  document.getElementById('mental-state').textContent = cfg.msgShort[l];
+  document.getElementById('side-panel').dir = state.dir;
+}
+
+/* ════════════════════════════════════════════
+   17. CALIBRATION
+════════════════════════════════════════════ */
+function startCalibration() {
+  const overlay = document.getElementById('cal-overlay');
+  overlay.style.display = 'flex';
+  const l = state.lang;
+  document.getElementById('cal-title').textContent  = l==='ar' ? '📷 ثبّت وجهك!' : '📷 Hold Still!';
+  document.getElementById('cal-desc').textContent   = l==='ar' ? 'انظر للكاميرا بشكل طبيعي، لا تبتسم ولا تعبّس...' : 'Look at the camera naturally. Do not smile or frown...';
+  document.getElementById('cal-status').textContent = l==='ar' ? 'جاري التحضير...' : 'Preparing...';
+  document.getElementById('cal-bar-fill').style.width = '0%';
+  calPaused = true; calPauseEnd = Date.now() + FREEZE_DUR;
+  calFrames = []; isCalibrated = false;
+
+  let cd = 3;
+  const iv = setInterval(()=>{
+    document.getElementById('cal-status').textContent = (l==='ar' ? 'ابقَ ثابتاً... ' : 'Stay still... ') + cd;
+    cd--;
+    if (cd < 0) {
+      clearInterval(iv);
+      calPaused = false;
+      document.getElementById('cal-title').textContent  = l==='ar' ? '✅ جاري المعايرة...' : '✅ Calibrating...';
+      document.getElementById('cal-desc').textContent   = l==='ar' ? 'يرجى البقاء بوضعك الطبيعي' : 'Please stay in your natural position';
+      document.getElementById('cal-status').textContent = l==='ar' ? 'يتم قياس ملامح وجهك' : 'Measuring your facial features';
+    }
+  }, 1000);
+}
+
+/* ════════════════════════════════════════════
+   18. CAMERA
+════════════════════════════════════════════ */
+function startCamera() {
+  const video  = document.getElementById('input_video');
+  const canvas = document.getElementById('output_canvas');
+  const ctx    = canvas.getContext('2d');
+
+  cameraInstance = new Camera(video, {
+    onFrame: async () => {
+      await faceMesh.send({ image: video });
+      canvas.width  = video.videoWidth  || 640;
+      canvas.height = video.videoHeight || 480;
+      ctx.save();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      if (faceRes) processFrame(faceRes);
+      ctx.restore();
+    },
+    width: 640, height: 480
+  });
+  cameraInstance.start()
+    .then(()=>{ document.getElementById('cam-error').style.display = 'none'; })
+    .catch(()=>{ document.getElementById('cam-error').style.display = 'flex'; document.getElementById('cal-overlay').style.display = 'none'; });
+}
+function retryCamera() {
+  document.getElementById('cam-error').style.display = 'none';
+  startCamera();
+}
+
+/* ════════════════════════════════════════════
+   19. FACE ANALYSIS
+════════════════════════════════════════════ */
+function processFrame(lm) {
+  const now  = Date.now();
+  const faceW = dist(lm[234], lm[454]);
+  if (faceW < 0.001) return;
+
+  const cEAR         = ((dist(lm[159],lm[145]) + dist(lm[386],lm[374])) / 2) / faceW;
+  const cMouth       = dist(lm[13],  lm[14])  / faceW;
+  const cInnerBrow   = dist(lm[55],  lm[285]) / faceW;
+  const cOuterBrow   = ((dist(lm[105],lm[159]) + dist(lm[334],lm[386])) / 2) / faceW;
+  const cNoseWrinkle = dist(lm[1],   lm[168]) / faceW;
+
+  if (calPaused) return;
+
+  // ─── Calibration ───────────────────────
+  if (!isCalibrated) {
+    calFrames.push({ ear:cEAR, mouth:cMouth, innerBrow:cInnerBrow, outerBrow:cOuterBrow, noseWrinkle:cNoseWrinkle });
+    const pct = Math.round((calFrames.length / CAL_FRAMES) * 100);
+    document.getElementById('cal-bar-fill').style.width = pct + '%';
+    const l = state.lang;
+    document.getElementById('cal-status').textContent = pct + (l==='ar'?'% مكتمل':'% complete');
+    if (calFrames.length >= CAL_FRAMES) {
+      const avg = k => calFrames.reduce((s,f)=>s+f[k],0) / calFrames.length;
+      baseFace = { ear:avg('ear'), mouth:avg('mouth'), innerBrow:avg('innerBrow'), outerBrow:avg('outerBrow'), noseWrinkle:avg('noseWrinkle') };
+      isCalibrated = true; lastRecalTime = now;
+      document.getElementById('cal-overlay').style.display = 'none';
+      document.getElementById('mental-state').textContent = CHARACTERS[state.resultChar.key].msgShort[state.lang];
+    }
+    return;
+  }
+
+  // Recalibrate every 5 min
+  if (now - lastRecalTime > 300000) { lastRecalTime = now; startCalibration(); return; }
+
+  // ─── Sleep detection ───────────────────
+  const eyesClosed = cEAR < baseFace.ear * 0.55;
+  if (eyesClosed) {
+    if (sleepStart === 0) sleepStart = now;
+    if (now - sleepStart >= DURATIONS.sleep && !isSleeping) { isSleeping = true; activateSleep(); }
+  } else {
+    sleepStart = 0;
+    if (isSleeping) { isSleeping = false; sleepScored = false; }
+  }
+  if (isSleeping) return;
+
+  // ─── Mouth analysis ────────────────────
+  mouthHist.push({ time:now, val:cMouth });
+  mouthHist = mouthHist.filter(m => now - m.time < 1500);
+  let changes = 0;
+  for (let i = 1; i < mouthHist.length; i++)
+    if (Math.abs(mouthHist[i].val - mouthHist[i-1].val) > 0.006) changes++;
+  const isTalking   = changes > 6;
+  const isMouthOpen = cMouth > baseFace.mouth * 2.8;
+  const isYawn      = isMouthOpen && !isTalking && cEAR < baseFace.ear * 0.88;
+  let mouthLabel    = state.lang === 'ar' ? 'صامت 😐' : 'Silent 😐';
+
+  if (isYawn) {
+    if (mouthOpenStart === 0) mouthOpenStart = now;
+    const dur = now - mouthOpenStart;
+    if (dur >= DURATIONS.fatigue) {
+      mouthLabel = state.lang === 'ar' ? 'تثاؤب 🥱' : 'Yawning 🥱';
+      if (!yawnScored && now - lastAction.fatigue >= ACTION_CD) {
+        awardScore('fatigue'); sessionStats.fatigue++; cumStats.fatigue++;
+        yawnScored = true; lastAction.fatigue = now;
+      }
+    } else {
+      const s = Math.ceil((DURATIONS.fatigue - dur) / 1000);
+      mouthLabel = (state.lang==='ar'?`فم مفتوح... (${s}ث)`:`Mouth open... (${s}s)`);
+    }
+  } else {
+    if (mouthOpenStart !== 0) yawnScored = false;
+    mouthOpenStart = 0;
+    if (isTalking) {
+      mouthLabel = state.lang === 'ar' ? 'يتحدث 🗣️' : 'Talking 🗣️';
+      if (now - lastTalkTime >= 3000) {
+        awardScore('talking'); sessionStats.talking++; cumStats.talking++;
+        lastTalkTime = now;
+      }
+    } else if (cMouth > baseFace.mouth * 1.3) {
+      mouthLabel = state.lang === 'ar' ? 'شفاه متباعدة' : 'Mouth ajar';
+    }
+  }
+
+  // ─── Blink analysis ────────────────────
+  if (cEAR < baseFace.ear * 0.72) {
+    if (blinkStart === 0) blinkStart = now;
+    isClosed = true;
+  } else {
+    if (isClosed && blinkStart !== 0) {
+      const dur = now - blinkStart;
+      if (dur >= 500 && dur < 2000 && now - lastAction.understanding >= ACTION_CD) {
+        awardScore('understanding'); sessionStats.understanding++; cumStats.understanding++;
+        lastAction.understanding = now;
+      } else { blinks++; }
+    }
+    blinkStart = 0; isClosed = false;
+  }
+
+  // ─── Brow analysis ─────────────────────
+  let detBrow = "none", browLabel = state.lang==='ar'?'طبيعي':'Normal';
+  if (cOuterBrow > baseFace.outerBrow * 1.18) {
+    detBrow = 'surprise'; browLabel = state.lang==='ar'?'تعجب 😲':'Surprise 😲';
+  } else if (cInnerBrow < baseFace.innerBrow * 0.93 && cNoseWrinkle < baseFace.noseWrinkle * 0.93) {
+    detBrow = 'confusion'; browLabel = state.lang==='ar'?'ارتباك 🧐':'Confused 🧐';
+  } else if (cInnerBrow < baseFace.innerBrow * 0.93) {
+    detBrow = 'concentration'; browLabel = state.lang==='ar'?'تركيز 🔥':'Focus 🔥';
+  }
+  if (detBrow !== browState) { browState = detBrow; browStart = now; browScored = false; }
+  if (!browScored && detBrow !== 'none') {
+    const elapsed = now - browStart;
+    const minDur  = DURATIONS[detBrow] || 1500;
+    if (elapsed >= minDur && now - lastAction[detBrow] >= ACTION_CD) {
+      awardScore(detBrow);
+      if (detBrow === 'concentration') sessionStats.concentration++;
+      if (detBrow === 'confusion')     sessionStats.confusion++;
+      if (detBrow === 'surprise')      { sessionStats.surprise++; cumStats.surprise++; }
+      lastAction[detBrow] = now; browScored = true;
+    }
+  }
+
+  // ─── Update UI ─────────────────────────
+  document.getElementById('total-score-val').textContent = Math.floor(totalScore);
+  document.getElementById('blink-val').textContent    = cumStats.understanding;
+  document.getElementById('talk-val').textContent     = cumStats.talking;
+  document.getElementById('surprise-val').textContent = cumStats.surprise;
+  document.getElementById('fatigue-val').textContent  = cumStats.fatigue;
+  document.getElementById('brow-val').textContent     = browLabel;
+  document.getElementById('mouth-val').textContent    = mouthLabel;
+
+  // Mode check every 2 min, report every 30s
+  if (now - lastModeCheck >= 120000) { lastModeCheck = now; checkScoreMode(); }
+  if (now - lastReport >= 30000)     { lastReport = now;    processCycle(); }
+}
+
+/* ════════════════════════════════════════════
+   20. SCORE LOGIC
+════════════════════════════════════════════ */
+function awardScore(action) {
+  totalScore += (CHARACTERS[state.resultChar.key].scores[action] || 0);
+}
+function activateSleep() {
+  document.getElementById('output_canvas').style.filter = 'blur(8px) brightness(0.4)';
+  document.getElementById('sleep-overlay').style.display = 'flex';
+  if (!sleepScored) { awardScore('sleep'); sleepScored = true; }
+  showPopup(state.lang==='ar' ? 'انتبه! يبدو أنك نمت 😴 أكمل درسك!' : 'Wake up! You fell asleep 😴 Continue your lesson!');
+}
+function dismissSleep() {
+  isSleeping = false; sleepScored = false; sleepStart = 0;
+  document.getElementById('output_canvas').style.filter = '';
+  document.getElementById('sleep-overlay').style.display = 'none';
+}
+function showPopup(msg) {
+  const cfg  = CHARACTERS[state.resultChar.key];
+  const l    = state.lang;
+  document.getElementById('pop-name').textContent = cfg.name[l];
+  document.getElementById('pop-name').style.color = cfg.accent;
+  document.getElementById('pop-msg').textContent  = msg;
+  const pop = document.getElementById('char-popup');
+  pop.style.borderColor = cfg.accent;
+  pop.style.display = 'block';
+  clearTimeout(pop._timer);
+  pop._timer = setTimeout(()=> pop.style.display = 'none', 6000);
+}
+function RescueMode() {
+  applyDashboardTheme('kawthar');
+  showPopup(state.lang==='ar' ? 'أرى أنك تمر بوقت صعب.. خذ نفساً عميقاً، أنا هنا معك 💙' : "I see you're having a tough time.. take a deep breath, I'm here with you 💙");
+  document.body.style.filter = 'brightness(0.82)';
+  setTimeout(()=> document.body.style.filter = '', 6000);
+}
+function GuidanceMode() {
+  showPopup(state.lang==='ar' ? 'ركّز معي قليلاً، لنرتب الأفكار خطوة بخطوة 🔑' : 'Focus with me a little, let us sort through the ideas step by step 🔑');
+  const sp = document.getElementById('side-panel');
+  sp.style.boxShadow = `0 0 25px ${CHARACTERS.thabet.accent}55`;
+  setTimeout(()=> sp.style.boxShadow = '', 6000);
+}
+function BoostMode() {
+  applyDashboardTheme('mohamed');
+  showPopup(state.lang==='ar' ? '🔥 أنت في وضع البطل! استمر، الآن في أفضل حالاتك!' : '🔥 You are in champion mode! Keep going, you are at your best!');
+  document.body.style.filter = 'hue-rotate(10deg) saturate(1.18)';
+  setTimeout(()=> document.body.style.filter = '', 6000);
+}
+function MasteryMode() {
+  showPopup(state.lang==='ar' ? '🏆 وضع الإتقان! أداؤك استثنائي، أنت تتعلم بعمق حقيقي!' : '🏆 Mastery mode! Your performance is exceptional — you are learning with real depth!');
+  document.getElementById('total-score-val').style.textShadow = '0 0 20px var(--accent), 0 0 40px var(--accent)';
+  sndMastery();
+}
+function checkScoreMode() {
+  const s = totalScore;
+  if      (s < -20)  RescueMode();
+  else if (s <= 50)  GuidanceMode();
+  else if (s <= 200) BoostMode();
+  else               MasteryMode();
+}
+function processCycle() {
+  const l = state.lang;
+  let msg = '';
+  if (sessionStats.fatigue > 0)
+    msg = l==='ar' ? 'لاحظت تعباً، هل تحتاج لاستراحة قصيرة؟ 😴' : 'I noticed fatigue. Would you like a short break? 😴';
+  else if (sessionStats.understanding > 0)
+    msg = l==='ar' ? 'رائع! الأفكار تترسّخ في ذهنك ✨' : 'Great! The ideas are settling in your mind ✨';
+  else if (sessionStats.concentration > 2)
+    msg = l==='ar' ? 'تركيز ممتاز! أنت على المسار الصحيح 🎯' : 'Excellent focus! You are on the right track 🎯';
+  if (msg) showPopup(msg);
+  sessionStats = { concentration:0, confusion:0, fatigue:0, understanding:0, surprise:0, talking:0 };
+}
+function endSession() {
+  sndTransition();
+  document.getElementById('session-end').style.display = 'flex';
+  const l = state.lang;
+  document.getElementById('end-title').textContent        = l==='ar' ? 'انتهت جلسة التعلم!' : 'Learning Session Complete!';
+  document.getElementById('final-score-display').textContent = Math.floor(totalScore);
+  const msg = totalScore > 100 ? (l==='ar'?'أداء استثنائي! أنت نجم اليوم 🏆':'Exceptional performance! You are today\'s star 🏆')
+            : totalScore > 0   ? (l==='ar'?'أداء جيد، استمر في التقدم 📚':'Good performance, keep progressing 📚')
+            :                    (l==='ar'?'الغد فرصة جديدة للتميز 🌱':'Tomorrow is a new chance to shine 🌱');
+  document.getElementById('end-subtitle').textContent = msg;
+}
+
+/* ════════════════════════════════════════════
+   21. RESTART
+════════════════════════════════════════════ */
+function restartAll() {
+  // Stop camera if running
+  if (cameraInstance) { try { cameraInstance.stop(); } catch(e){} cameraInstance = null; }
+  // Reset state
+  Object.assign(state, { lang:'ar', dir:'rtl', userName:'', answers:{}, currentQ:0, resultChar:null, resultScores:{}, checks:{c1:false,c2:false,c3:false} });
+  totalScore = 0; blinks = 0; isClosed = false; isSleeping = false; sleepScored = false;
+  mouthOpenStart = 0; blinkStart = 0; sleepStart = 0; lastTalkTime = 0;
+  mouthHist = []; cumStats = { understanding:0, talking:0, surprise:0, fatigue:0 };
+  sessionStats = { concentration:0, confusion:0, fatigue:0, understanding:0, surprise:0, talking:0 };
+  document.documentElement.style.setProperty('--accent', '#C96482');
+  document.getElementById('screen-dashboard').classList.remove('active');
+  document.getElementById('session-end').style.display = 'none';
+  document.getElementById('output_canvas').style.filter = '';
+  location.reload();
+}
+
+/* ════════════════════════════════════════════
+   22. SCREEN TRANSITION HOOKS
+════════════════════════════════════════════ */
+// Override showScreen to init screens on display
+const _origShow = showScreen;
+window.showScreen = function(id) {
+  _origShow(id);
+  if (id === 'name') setTimeout(initNameScreen, 50);
+};
+
+// Visibility change — restart camera if needed
+document.addEventListener('visibilitychange', ()=>{
+  if (!document.hidden && cameraInstance) {
+    cameraInstance.start().catch(()=>{ document.getElementById('cam-error').style.display = 'flex'; });
+  }
+});
+</script>
+</body>
+</html>
